@@ -52,6 +52,11 @@ sudo apt install ./vscode.deb
 sudo apt update
 sudo apt install gtkterm
 
+# SSH Server
+sudo apt update
+sudo apt install openssh-server
+sudo ufw allow ssh
+
 # ROS2 Foxy
 sudo apt update && sudo apt install locales
 sudo locale-gen en_US en_US.UTF-8
