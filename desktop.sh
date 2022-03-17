@@ -6,6 +6,9 @@ cd ~/Downloads
 # source updated repositories
 sudo apt update
 
+# startup USB disk creator
+sudo apt-get install usb-creator-gtk
+
 # gtkterm
 sudo apt install gtkterm
 
