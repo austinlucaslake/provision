@@ -1,0 +1,14 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks.git
+    rev: v2.3.0
+    hooks:
+      - id: check-yaml
+  - repo: https://github.com/ansible/ansible-lint.git
+    rev: v6.21.1
+    hooks:
+      - id: ansible-lint
+        name: Ansible Lint
+        language: python
+        additional_dependencies:
+          - ansible
+        files: provision.yaml
