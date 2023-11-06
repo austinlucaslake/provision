@@ -4,139 +4,124 @@
   connection: local
   become: true
   tasks:
-    - name: Install Debian packages
+    - name: Batch 1
       block:
-        - name: Alacritty
+        - name: Install alacritty
           ansible.builtin.apt:
             package: alacritty
           async: 30
           poll: 0
-        - name: Build-essential
+        - name: Install build-essential
           ansible.builtin.apt:
             package: build-essential
           async: 30
           poll: 0
-        - name: Curl
+        - name: Install curl
           ansible.builtin.apt:
             package: curl
           async: 30
           poll: 0
-        - name: Git
+        - name: Install git
           ansible.builtin.apt:
             package: git
           async: 30
           poll: 0
-        - name: Gpg
+        - name: Install gpg
           ansible.builtin.apt:
             package: gpg
           async: 30
           poll: 0
-        - name: Libxpa-dev
-          ansible.builtin.apt:
-            package: libxpa-dev
-          async: 30
-          poll: 0
-        - name: Manpages-dev
+        - name: Install OpenSSH server
           ansible.builtin.apt:
             package: manpages-dev
           async: 30
           poll: 0
-        - name: Neovim
+        - name: Install Neovim
           ansible.builtin.apt:
             package: neovim
           async: 30
           poll: 0
-        - name: Nmap
+        - name: Install nmap
           ansible.builtin.apt:
             package: nmap
           async: 30
           poll: 0
-        - name: Openssh-client
+        - name: Install OpenSSH client
           ansible.builtin.apt:
             package: openssh-client
           async: 30
           poll: 0
-        - name: Openssh-server
+        - name: Install OpenSSH server
           ansible.builtin.apt:
             package: openssh-server
           async: 30
           poll: 0
-        - name: Python-opencv
+        - name: Install OpenCV
           ansible.builtin.apt:
             package: python-opencv
           async: 30
           poll: 0
-        - name: Saods9
+        - name: Install DS9
           ansible.builtin.apt:
             package: saods9
           async: 30
           poll: 0
-        - name: Slack-desktop
+        - name: Install Slack
           ansible.builtin.apt:
             deb: https://downloads.slack-edge.com/linux_released/slack-desktop-4.3.2-amd64.deb
           async: 30
           poll: 0
-        - name: Tmux
+        - name: Install Tmux
           ansible.builtin.apt:
             package: tmux
           async: 30
           poll: 0
-        - name: Zoom
+        - name: Install Zoom
           ansible.builtin.apt:
             deb: https://zoom.us/client/latest/zoom_amd_64.deb
           async: 30
           poll: 0
-    - name: Ensure crytographic keys exist
-      block:
-        - name: SSH
+        - name: Create SSH key
           community.crypto.openssh_keypair:
             type: ed25519
             path: /Users/$USER/.ssh/$USER@$HOSTNAME
             comment: 53884490+austinlucaslake@users.noreply.github.com
           async: 15
           poll: 0
-        - name: GPG
+        - name: Create GPG key
           ansible.builtin.command:
-            cmd: gpg --batch --passphrase '' --quick-gen-key "Name_test (Testing) <email_test@test.com>" ed25519 sign 1y
+            cmd: gpg --batch --passphrase '' --quick-gen-key "Austin Lake ($(hostname -s)) <53884490+austinlucaslake@users.noreply.github.com>" ed25519 sign 1y
           changed_when: false
           async: 15
           poll: 0
-        - name: Store GPG keyid
+        - name: Create GPG key
           ansible.builtin.command:
-            cmd: gpg --list-secret-keys --with-colons | awk -F'/' '$1 == "sec" {print $5}'
+            cmd: gpg --batch --passphrase '' --quick-gen-key "Austin Lake ($(hostname -s)) <53884490+austinlucaslake@users.noreply.github.com>" ed25519 sign 1y
           changed_when: false
-          register: gpgkeyid
-    - name: Configure Git
+          async: 15
+          poll: 0
+        - name: Fetch GitHub CLI GPG key
+          ansible.builtin.get_url:
+            url: https://cli.github.com/packages/githubcli-archive-keyring.gpg
+            dest: /usr/share/keyrings/githubcli-archive-keyring.gpg
+            mode: go+r
+          async: 15
+          poll: 0
+        - name: Fetch Rust installer
+          ansible.builtin.uri:
+            url: https://sh.rustup.rs
+            return_content: true
+          register: rust_installer
+          async: 15
+          poll: 0
+        - name: Fetch Spotify GPG key
+          ansible.builtin.apt_key:
+            url: https://download.spotify.com/debian/pubkey_5E3C45D7B312C643.gpg
+          async: 15
+          poll: 0
+    - name: Batch 2
       block:
-        - name: Ensure name is set in Git
-          community.general.git_config:
-            name: user.name
-            scope: global
-            value: Austin Lake
-          async: 5
-          poll: 0
-        - name: Ensure email is set in Git
-          community.general.git_config:
-            name: user.email
-            scope: global
-            value: 53884490+austinlucaslake@users.noreply.github.com
-          async: 5
-          poll: 0
-        - name: Specify signing key
-          community.general.git_config:
-            name: user.signingkey
-            scope: global
-            value: "{{ gpgkeyid.stdout }}"
-        - name: Enure commits are automatically signed
-          community.general.git_config:
-            name: commit.gpgsign
-            scope: global
-            value: true
-          async: 5
-          poll: 0
-    - name: Clone repositories
-      block:
-        - name: Astrosight
+        - name: Clone astrosight repository
           ansible.builtin.git:
             repo: git@github.com:austinlucaslake/astrosight.git
             dest: ~/code/astrosight
@@ -144,7 +129,7 @@
             update: false
           async: 30
           poll: 0
-        - name: Dotfiles
+        - name: Clone dotfiles repository
           ansible.builtin.git:
             repo: git@github.com:austinlucaslake/dotfiles.git
             dest: ~/code/dotfiles
@@ -152,7 +137,7 @@
             update: false
           async: 30
           poll: 0
-        - name: Provision
+        - name: Clone provision repository
           ansible.builtin.git:
             repo: git@github.com:austinlucaslake/provision.git
             dest: ~/code/provision
@@ -160,7 +145,7 @@
             update: false
           async: 30
           poll: 0
-        - name: Python_template
+        - name: Clone python_template repository
           ansible.builtin.git:
             repo: git@github.com:austinlucaslake/python_template.git
             dest: ~/code/python_template
@@ -168,7 +153,7 @@
             update: false
           async: 30
           poll: 0
-        - name: Rust_template
+        - name: Clone rust_template repository
           ansible.builtin.git:
             repo: git@github.com:austinlucaslake/rust_template.git
             dest: ~/code/rust_template
@@ -176,7 +161,7 @@
             update: false
           async: 30
           poll: 0
-        - name: Website
+        - name: Clone website repository
           ansible.builtin.git:
             repo: git@github.com:austinlucaslake/website.git
             dest: ~/code/website
@@ -184,7 +169,7 @@
             update: false
           async: 30
           poll: 0
-        - name: Tmux Plugin Manager
+        - name: Clone TPM repository
           ansible.builtin.git:
             repo: git@github.com:tmux-plugins/tpm.git
             dest: ~/.tmux/plugins/tpm
@@ -192,161 +177,192 @@
             update: false
           async: 30
           poll: 0
-    - name: Fetch data from url
-      block:
-        - name: GitHub CLI
-          ansible.builtin.get_url:
-            url: https://cli.github.com/packages/githubcli-archive-keyring.gpg
-            dest: /usr/share/keyrings/githubcli-archive-keyring.gpg
-            mode: go+r
-          async: 15
+        - name: Ensure name is set in Git
+          community.general.git_config:
+            name: user.name
+            scope: global
+            value: "Austin Lake"
+          async: 1
           poll: 0
-        - name: Rust
-          ansible.builtin.uri:
-            url: https://sh.rustup.rs
-            return_content: true
-          register: rustup_installer
-          async: 15
+        - name: Ensure email is set in Git
+          community.general.git_config:
+            name: user.email
+            scope: global
+            value: 53884490+austinlucaslake@users.noreply.github.com
+          async: 1
           poll: 0
-        - name: Spotify
-          ansible.builtin.apt_key:
-            url: https://download.spotify.com/debian/pubkey_5E3C45D7B312C643.gpg
-          async: 15
+        - name: Ensure Git commits are automatically signed
+          community.general.git_config:
+            name: commit.gpgsign
+            scope: global
+            value: true
+          async: 1
           poll: 0
-    - name: Run rustup installer
-      ansible.builtin.command:
-        cmd: sh -s -- default-toolchain stable -y
-        stdin: "{{ rustup_installer.stdout }}"
-      changed_when: false
-    - name: Ensure additional apt repositories are added to sources list
-      block:
-        - name: GitHub
+        - name: Run rustup installer
+          ansible.builtin.command:
+            cmd: sh -s -- default-toolchain stable -y
+            stdin: "{{ rust_installer.stdout }}"
+          changed_when: false
+          async: 120
+          poll: 0
+        - name: Store GPG keyid
+          ansible.builtin.command:
+            cmd: ggpg --list-secret-keys --keyid-format=long | grep 'sec' | cut -d/ -f2- | cut -d' ' -f-1
+          register: gpgkeyid
+          changed_when: false
+          async: 5
+          poll: 0
+        - name: Store GPG fingerprint
+          ansible.builtin.command:
+            cmd: gpg --list-options show-only-fpr-mbox --list-secret-keys | awk '{print $1}' | cut -d' ' -f1- | head -n 1
+          register: gpgfingerprint
+          changed_when: false
+          async: 5
+          poll: 0
+        - name: Add GitHub CLI apt repository to sources.list
           ansible.builtin.apt_repository:
             repo: deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main
             filename: github-cli
-          async: 15
+          async: 5
           poll: 0
-        - name: Spotify
+        - name: Add Spotify apt repository to sources.list
           ansible.builtin.apt_repository:
             repo: deb http://repository.spotify.com stable non-free
             filename: spotify
+          async: 5
+          poll: 0
+    - name: Batch 3
+      block:
+        - name: Add GPG encryption subkey
+          ansible.builtin.command:
+            cmd: gpg --batch --passphrase '' --quick-add-key {{ gpgfingerprint.stdout }} ed25519 sign 1y
+          changed_when: false
           async: 15
           poll: 0
-    - name: Install additional apt repositories
-      block:
-        - name: GitHub CLI
+        - name: Specify Git signing key
+          community.general.git_config:
+            name: user.signingkey
+            scope: global
+            value: "{{ gpgkeyid.stdout }}"
+          async: 1
+          poll: 0
+        - name: Install GitHub CLI
           ansible.builtin.apt:
             package: gh
           async: 30
           poll: 0
-        - name: Spotify
+        - name: Install Spotify
           ansible.builtin.apt:
             package: spotify-client
           async: 30
           poll: 0
-    - name: Add keys to GitHub profile
-      block:
-        - name: SSH
-          ansible.builtin.command:
-            cmd: gh ssh-key add ~/.ssh/$USER@$HOSTNAME.pub -t "$USER@$HOSTNAME"
-          changed_when: false
-          async: 15
-          poll: 0
-        - name: GPG
-          ansible.builtin.command:
-            cmd: gh gpg-key add {{ gpgkeyid.stdout }} -t "$USER@$HOSTNAME"
-          changed_when: false
-          async: 15
-          poll: 0
-    - name: Load configuration files
-      block:
-        - name: .bashrc
-          ansible.builtin.copy:
-            src: ~/code/dotfiles/.bashrc
-            dest: ~/.bashrc
-            mode: preserve
-          async: 5
-          poll: 0
-        - name: .bash_profile
-          ansible.builtin.copy:
-            src: ~/code/dotfiles/.bash_profile
-            dest: ~/.bash_profile
-            mode: preserve
-          async: 5
-          poll: 0
-        - name: .config/alacritty
-          ansible.builtin.copy:
-            src: ~/code/dotfiles/.config/alacritty
-            dest: ~/.config/alacritty
-            mode: preserve
-          async: 5
-          poll: 0
-        - name: .config/nvim
-          ansible.builtin.copy:
-            src: ~/code/dotfiles/.config/nvim
-            dest: ~/.config/nvim
-            mode: preserve
-          async: 5
-          poll: 0
-        - name: .config/gh
-          ansible.builtin.copy:
-            src: ~/code/dotfiles/.config/gh
-            dest: ~/.config/gh
-            mode: preserve
-          async: 5
-          poll: 0
-        - name: .hushlogin
-          ansible.builtin.copy:
-            src: ~/code/dotfiles/.hushlogin
-            dest: ~/.hushlogin
-            mode: preserve
-          async: 5
-          poll: 0
-        - name: .profile
-          ansible.builtin.copy:
-            src: ~/code/dotfiles/.profile
-            dest: ~/.profile
-            mode: preserve
-          async: 5
-          poll: 0
-        - name: .tmux.conf
-          ansible.builtin.copy:
-            src: ~/code/dotfiles/.tmux.conf
-            dest: ~/.tmux.conf
-            mode: preserve
-          async: 5
-          poll: 0
-    - name: Install Rust binaries
-      block:
-        - name: Clippy
+        - name: Install clippy
           ansible.builtin.command:
             cmd: rustup component add clippy
           changed_when: false
           async: 30
           poll: 0
-        - name: Cargo-leptos
+        - name: Install cargo-leptos
           community.general.cargo:
             name: cargo-leptos
             locked: true
           async: 30
           poll: 0
-        - name: Cargo-update
+        - name: Install cargo-update
           community.general.cargo:
             name: cargo-update
             locked: true
           async: 30
           poll: 0
-        - name: Rustfmt
+        - name: Install rustfmt
           ansible.builtin.command:
             cmd: rustup component add rustfmt
           changed_when: false
           async: 30
           poll: 0
-        - name: Trunk
+        - name: Install trunk
           community.general.cargo:
             name: trunk
             locked: true
           async: 30
           poll: 0
+        - name: Load .bashrc configuration file
+          ansible.builtin.copy:
+            src: ~/code/dotfiles/.bashrc
+            dest: ~/.bashrc
+            mode: preserve
+          async: 1
+          poll: 0
+        - name: Load .bash_profile configuration file
+          ansible.builtin.copy:
+            src: ~/code/dotfiles/.bash_profile
+            dest: ~/.bash_profile
+            mode: preserve
+          async: 1
+          poll: 0
+        - name: Load Alacritty configuration file
+          ansible.builtin.copy:
+            src: ~/code/dotfiles/.config/alacritty
+            dest: ~/.config/alacritty
+            mode: preserve
+          async: 1
+          poll: 0
+        - name: Load Neovim configuration file
+          ansible.builtin.copy:
+            src: ~/code/dotfiles/.config/nvim
+            dest: ~/.config/nvim
+            mode: preserve
+          async: 1
+          poll: 0
+        - name: Load GitHub CLI configuration file
+          ansible.builtin.copy:
+            src: ~/code/dotfiles/.config/gh
+            dest: ~/.config/gh
+            mode: preserve
+          async: 1
+          poll: 0
+        - name: Load .hushlogin configuration file
+          ansible.builtin.copy:
+            src: ~/code/dotfiles/.hushlogin
+            dest: ~/.hushlogin
+            mode: preserve
+          async: 1
+          poll: 0
+        - name: Load .profile configuration file
+          ansible.builtin.copy:
+            src: ~/code/dotfiles/.profile
+            dest: ~/.profile
+            mode: preserve
+          async: 1
+          poll: 0
+        - name: Load Tmux configuration file
+          ansible.builtin.copy:
+            src: ~/code/dotfiles/.tmux.conf
+            dest: ~/.tmux.conf
+            mode: preserve
+          async: 1
+          poll: 0
+    - name: Batch 4
+      when: token is defined
+      block:
+        - name: GitHub CLI authentication
+          ansible.builtin.command:
+            cmd: gh auth login -p ssh --with-token
+            stdin: "{{ token }}"
+          changed_when: false
+        - name: Add cryptographic keys to GitHub profile
+          block:
+            - name: SSH
+              ansible.builtin.command:
+                cmd: gh ssh-key add ~/.ssh/$USER@$(hostname -s).pub -t "$USER@$(hostname -s)"
+              changed_when: false
+              async: 15
+              poll: 0
+            - name: GPG
+              ansible.builtin.command:
+                cmd: gh gpg-key add {{ gpgkeyid.stdout }} -t "$USER@$(hostname -s)"
+              changed_when: false
+              async: 15
+              poll: 0
     - name: Reboot machine
       ansible.builtin.reboot:
