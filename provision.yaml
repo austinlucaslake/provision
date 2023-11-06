@@ -46,6 +46,11 @@
             package: neovim
           async: 30
           poll: 0
+        - name: Nmap
+          ansible.builtin.apt:
+            package: nmap
+          async: 30
+          poll: 0
         - name: Openssh-client
           ansible.builtin.apt:
             package: openssh-client

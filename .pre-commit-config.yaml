@@ -11,3 +11,4 @@ repos:
         language: python
         additional_dependencies:
           - ansible
+        files: provision.yaml
