@@ -127,7 +127,7 @@
             value: "{{ gpgkeyid.stdout }}"
         - name: Enure commits are automatically signed
           community.general.git_config:
-            name: commit.autosign
+            name: commit.gpgsign
             scope: global
             value: true
           async: 5
