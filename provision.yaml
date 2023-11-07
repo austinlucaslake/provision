@@ -154,6 +154,7 @@
         src: "~/code/dotfiles/{{ item }}"
         dest: "~/{{ item }}"
         mode: preserve
+      become: true
       with_items:
         - .bashrc
         - .bash_profile
