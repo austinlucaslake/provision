@@ -26,7 +26,6 @@
             deb:
               - https://downloads.slack-edge.com/linux_released/slack-desktop-4.3.2-amd64.deb
               - https://zoom.us/client/latest/zoom_amd_64.deb
-            clone: true
           async: 450
           poll: 0
         - name: Create SSH key
@@ -63,6 +62,7 @@
             repo: "git@github.com:austinlucaslake/{{ item }}.git"
             dest: "~/code/{{ item }}"
             accept_hostkey: true
+            clone: true
             key_file: "~/.ssh/$USER@$(hostname -s)"
           become: true
           with_items:
@@ -79,6 +79,7 @@
             repo: git@github.com:tmux-plugins/tpm.git
             dest: ~/.tmux/plugins/tpm
             accept_hostkey: true
+            clone: true
             key_file: "~/.ssh/$USER@$(hostname -s)"
           become: true
           async: 60
