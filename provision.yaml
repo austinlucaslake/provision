@@ -29,7 +29,7 @@
         - name: Create SSH key
           community.crypto.openssh_keypair:
             type: ed25519
-            path: /Users/$USER/.ssh/$USER@$HOSTNAME
+            path: /Users/$USER/.ssh/$USER@$(hostname -s)
             comment: 53884490+austinlucaslake@users.noreply.github.com
             passphrase: "{{ sshpassphrase }}"
           async: 15
