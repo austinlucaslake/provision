@@ -40,21 +40,21 @@
             return_content: true
           register: githubcligpgkey
           async: 15
-          poll: 15
+          poll: 5
         - name: Fetch Spotify GPG key
           ansible.builtin.uri:
             url: https://download.spotify.com/debian/pubkey_7A3A762FAFD4A51F.gpg
             return_content: true
           register: spotifygpgkey
           async: 15
-          poll: 15
+          poll: 5
         - name: Fetch Rust installer
           ansible.builtin.uri:
             url: https://sh.rustup.rs
             return_content: true
           register: rust_installer
           async: 15
-          poll: 15
+          poll: 5
     - name: Batch 2
       block:
         - name: Clone astrosight repository
@@ -160,7 +160,7 @@
             stdin: "{{ spotifygpgkey.content }}"
           changed_when: false
           async: 15
-          poll: 15
+          poll: 0
         - name: Load GitHub CLI GPG key and set file permissions
           ansible.builtin.command:
             cmd: sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg && sudo chmod go+r /usr/share/keyrings/githubcli-archive.keyring.gpg
