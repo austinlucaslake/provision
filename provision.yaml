@@ -31,11 +31,12 @@
             type: ed25519
             path: /Users/$USER/.ssh/$USER@$HOSTNAME
             comment: 53884490+austinlucaslake@users.noreply.github.com
+            passphrase: "{{ sshpassphrase }}"
           async: 15
           poll: 0
         - name: Create GPG key
           ansible.builtin.command:
-            cmd: gpg --batch --passphrase '' --quick-gen-key "Austin Lake ($(hostname -s)) <53884490+austinlucaslake@users.noreply.github.com>" ed25519 sign 1y
+            cmd: gpg --batch --passphrase {{ gpgpassphrase }} --quick-gen-key "Austin Lucas Lake <53884490+austinlucaslake@users.noreply.github.com>" ed25519 sign 1y
           changed_when: false
           async: 15
           poll: 0
@@ -149,32 +150,32 @@
             cmd: gpg --list-secret-keys --keyid-format=long | grep 'sec' | cut -d/ -f2- | cut -d ' ' -f-1
           register: gpgkeyid
           changed_when: false
-          async: 5
+          async: 15
           poll: 0
         - name: Store GPG fingerprint
           ansible.builtin.command:
             cmd: gpg --list-options show-only-fpr-mbox --list-secret-keys | awk '{print $1}' | cut -d ' ' -f1- | head -n 1
           register: gpgfingerprint
           changed_when: false
-          async: 5
+          async: 15
           poll: 0
         - name: Add GitHub CLI apt repository to sources.list
           ansible.builtin.apt_repository:
             repo: deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main
             filename: github-cli
-          async: 5
+          async: 15
           poll: 0
         - name: Add Spotify apt repository to sources.list
           ansible.builtin.apt_repository:
             repo: deb http://repository.spotify.com stable non-free
             filename: spotify
-          async: 5
+          async: 15
           poll: 0
     - name: Batch 3
       block:
         - name: Add GPG encryption subkey
           ansible.builtin.command:
-            cmd: gpg --batch --passphrase '' --quick-add-key {{ gpgfingerprint.stdout }} ed25519 sign 1y
+            cmd: gpg --batch --passphrase {{ gpgpassphrase }} --quick-add-key {{ gpgfingerprint.stdout }} ed25519 sign 1y
           changed_when: false
           async: 15
           poll: 0
@@ -281,7 +282,7 @@
               poll: 0
             - name: GPG
               ansible.builtin.command:
-                cmd: gh gpg-key add {{ gpgkeyid.stdout }} -t "$USER@$(hostname -s)"
+                cmd: gpg --armor --export {{ gpgkeyid.stdout }} | gh gpg-key add - -t "$USER@$(hostname -s)"
               changed_when: false
               async: 15
               poll: 0
