@@ -148,7 +148,7 @@
         - name: Run rustup installer
           ansible.builtin.command:
             cmd: sh -s -- default-toolchain stable -y
-            stdin: "{{ rust_installer.stdout }}"
+            stdin: "{{ rust_installer.stdout_lines }}"
           changed_when: false
           async: 120
           poll: 0
@@ -182,7 +182,7 @@
       block:
         - name: Add GPG encryption subkey
           ansible.builtin.command:
-            cmd: gpg --batch --passphrase {{ gpgpassphrase }} --quick-add-key {{ gpgfingerprint.stdout }} ed25519 sign 1y
+            cmd: gpg --batch --passphrase {{ gpgpassphrase }} --quick-add-key {{ gpgfingerprint.stdout_lines }} ed25519 sign 1y
           changed_when: false
           async: 15
           poll: 0
@@ -190,7 +190,7 @@
           community.general.git_config:
             name: user.signingkey
             scope: global
-            value: "{{ gpgkeyid.stdout }}"
+            value: "{{ gpgkeyid.stdout_lines }}"
           async: 1
           poll: 0
         - name: Install GitHub CLI and Spotify
@@ -289,7 +289,7 @@
               poll: 0
             - name: GPG
               ansible.builtin.command:
-                cmd: gpg --armor --export {{ gpgkeyid.stdout }} | gh gpg-key add - -t "$USER@$(hostname -s)"
+                cmd: gpg --armor --export {{ gpgkeyid.stdout_lines }} | gh gpg-key add - -t "$USER@$(hostname -s)"
               changed_when: false
               async: 15
               poll: 0
