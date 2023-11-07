@@ -27,6 +27,7 @@
       become_user: root
     - name: Install Debian packages
       ansible.builtin.apt:
+        install-recommends: false
         deb:
           - https://downloads.slack-edge.com/linux_released/slack-desktop-4.3.2-amd64.deb
           - https://zoom.us/client/latest/zoom_amd_64.deb
