@@ -131,6 +131,13 @@
             value: 53884490+austinlucaslake@users.noreply.github.com
           async: 1
           poll: 0
+        - name: Ensure new SSH key is used in Git
+          community.general.git_config:
+            name: core.sshCommand
+            scope: global
+            value: "/usr/bin/ssh -i ~/.ssh/$USER@$(hostname -s)"
+          async: 1
+          poll: 0
         - name: Ensure Git commits are automatically signed
           community.general.git_config:
             name: commit.gpgsign
