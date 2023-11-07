@@ -31,7 +31,6 @@
           ansible.builtin.command:
             cmd: "ssh-keygen -q -t ed25519 -a 100 -C 53884490+austinlucaslake@users.noreply.github.com -N {{ sshpassphrase }} -f ~/.ssh/$USER@$(hostname -s)"
           become: true
-          become_user: "$USER"
           async: 15
           poll: 0
         - name: Fetch GitHub CLI GPG key
@@ -64,7 +63,6 @@
             accept_hostkey: true
             key_file: "~/.ssh/$USER@$(hostname -s)"
           become: true
-          become_user: "$USER"
           with_items:
             - "astrosight"
             - "dotfiles"
@@ -81,7 +79,6 @@
             accept_hostkey: true
             key_file: "~/.ssh/$USER@$(hostname -s)"
           become: true
-          become_user: "$USER"
           async: 60
           poll: 0
         - name: Run rustup installer
