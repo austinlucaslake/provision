@@ -118,29 +118,29 @@
             name: user.name
             scope: global
             value: "Austin Lake"
-          async: 1
-          poll: 1
+          async: 5
+          poll: 0
         - name: Ensure email is set in Git
           community.general.git_config:
             name: user.email
             scope: global
             value: 53884490+austinlucaslake@users.noreply.github.com
-          async: 1
-          poll: 1
+          async: 5
+          poll: 0
         - name: Ensure new SSH key is used in Git
           community.general.git_config:
             name: core.sshCommand
             scope: global
             value: "/usr/bin/ssh -i ~/.ssh/$USER@$(hostname -s)"
-          async: 1
-          poll: 1
+          async: 5
+          poll: 0
         - name: Ensure Git commits are automatically signed
           community.general.git_config:
             name: commit.gpgsign
             scope: global
             value: true
-          async: 1
-          poll: 1
+          async: 5
+          poll: 0
         - name: Run rustup installer
           ansible.builtin.command:
             cmd: sh -s -- default-toolchain stable -y
