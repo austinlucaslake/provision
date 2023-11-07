@@ -156,12 +156,8 @@
             - name: SSH
               ansible.builtin.command:
                 cmd: gh ssh-key add ~/.ssh/$USER@$(hostname -s).pub -t "$USER@$(hostname -s)"
-              async: 15
-              poll: 5
             - name: GPG
               ansible.builtin.command:
                 cmd: gpg --armor --export {{ gpgkeyid.stdout }} | gh gpg-key add - -t "$USER@$(hostname -s)"
-              async: 15
-              poll: 5
     - name: Reboot machine
       ansible.builtin.reboot:
