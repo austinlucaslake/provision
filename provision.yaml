@@ -57,53 +57,19 @@
           poll: 5
     - name: Batch 2
       block:
-        - name: Clone astrosight repository
+        - name: Clone personal GitHub repositories
           ansible.builtin.git:
-            repo: git@github.com:austinlucaslake/astrosight.git
-            dest: ~/code/astrosight
+            repo: "git@github.com:austinlucaslake/{{ item }}.git"
+            dest: "~/code/{{ item }}"
             accept_hostkey: true
-            update: false
-          async: 60
-          poll: 0
-        - name: Clone dotfiles repository
-          ansible.builtin.git:
-            repo: git@github.com:austinlucaslake/dotfiles.git
-            dest: ~/code/dotfiles
-            accept_hostkey: true
-            update: false
-          async: 60
-          poll: 0
-        - name: Clone provision repository
-          ansible.builtin.git:
-            repo: git@github.com:austinlucaslake/provision.git
-            dest: ~/code/provision
-            accept_hostkey: true
-            update: false
-          async: 60
-          poll: 0
-        - name: Clone python_template repository
-          ansible.builtin.git:
-            repo: git@github.com:austinlucaslake/python_template.git
-            dest: ~/code/python_template
-            accept_hostkey: true
-            update: false
-          async: 60
-          poll: 0
-        - name: Clone rust_template repository
-          ansible.builtin.git:
-            repo: git@github.com:austinlucaslake/rust_template.git
-            dest: ~/code/rust_template
-            accept_hostkey: true
-            update: false
-          async: 60
-          poll: 0
-        - name: Clone website repository
-          ansible.builtin.git:
-            repo: git@github.com:austinlucaslake/website.git
-            dest: ~/code/website
-            accept_hostkey: true
-            update: false
-          async: 60
+          with_items:
+            - "astrosight"
+            - "dotfiles"
+            - "provision"
+            - "python_template"
+            - "rust_template"
+            - "website"
+          async: 360
           poll: 0
         - name: Clone TPM repository
           ansible.builtin.git:
@@ -112,34 +78,6 @@
             accept_hostkey: true
             update: false
           async: 60
-          poll: 0
-        - name: Ensure name is set in Git
-          community.general.git_config:
-            name: user.name
-            scope: global
-            value: "Austin Lake"
-          async: 5
-          poll: 0
-        - name: Ensure email is set in Git
-          community.general.git_config:
-            name: user.email
-            scope: global
-            value: 53884490+austinlucaslake@users.noreply.github.com
-          async: 5
-          poll: 0
-        - name: Ensure new SSH key is used in Git
-          community.general.git_config:
-            name: core.sshCommand
-            scope: global
-            value: "/usr/bin/ssh -i ~/.ssh/$USER@$(hostname -s)"
-          async: 5
-          poll: 0
-        - name: Ensure Git commits are automatically signed
-          community.general.git_config:
-            name: commit.gpgsign
-            scope: global
-            value: true
-          async: 5
           poll: 0
         - name: Run rustup installer
           ansible.builtin.command:
@@ -218,53 +156,33 @@
           - spotify-client
       async: 60
       poll: 0
-    - name: Load .bashrc configuration file
+    - name: Load Configuration files
       ansible.builtin.copy:
-        src: ~/code/dotfiles/.bashrc
-        dest: ~/.bashrc
+        src: ~/code/dotfiles/"{{ item }}"
+        dest: ~/"{{ item }}"
         mode: preserve
-    - name: Load .bash_profile configuration file
-      ansible.builtin.copy:
-        src: ~/code/dotfiles/.bash_profile
-        dest: ~/.bash_profile
-        mode: preserve
-    - name: Load Alacritty configuration file
-      ansible.builtin.copy:
-        src: ~/code/dotfiles/.config/alacritty
-        dest: ~/.config/alacritty
-        mode: preserve
-    - name: Load Neovim configuration file
-      ansible.builtin.copy:
-        src: ~/code/dotfiles/.config/nvim
-        dest: ~/.config/nvim
-        mode: preserve
-    - name: Load GitHub CLI configuration file
-      ansible.builtin.copy:
-        src: ~/code/dotfiles/.config/gh
-        dest: ~/.config/gh
-        mode: preserve
-    - name: Load .hushlogin configuration file
-      ansible.builtin.copy:
-        src: ~/code/dotfiles/.hushlogin
-        dest: ~/.hushlogin
-        mode: preserve
-    - name: Load .profile configuration file
-      ansible.builtin.copy:
-        src: ~/code/dotfiles/.profile
-        dest: ~/.profile
-        mode: preserve
-    - name: Load Tmux configuration file
-      ansible.builtin.copy:
-        src: ~/code/dotfiles/.tmux.conf
-        dest: ~/.tmux.conf
-        mode: preserve
-    - name: Specify Git signing key
+      with_items:
+        - .bashrc
+        - .bash_profile
+        - .config/alacritty
+        - .config/nvim
+        - .config/gh
+        - .hushlogin
+        - .profile
+        - .tmux.conf
+    - name: Ensure Git is configured
       community.general.git_config:
-        name: user.signingkey
+        name: "{{ item.name }}"
         scope: global
-        value: "{{ gpgkeyid.stdout }}"
-      async: 1
-      poll: 1
+        value: "{{ item.value }}"
+      with_items:
+        - { name: "user.name", value: "Austin Lake"}
+        - { name: "user.email", value: "53884490+austinlucaslake@users.noreply.github.com"}
+        - { name: "core.sshCommand", value: "/usr/bin/ssh -i ~/.ssh/$USER@$(hostname -s)"}
+        - { name: "commit.gpgsign", value: true }
+        - { name: "user.signingkey", value: "{{ gpgkeyid.stdout }}" }
+      async: 30
+      poll: 0
     - name: Batch 4
       when: token is defined
       block:
