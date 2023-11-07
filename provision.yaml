@@ -34,12 +34,6 @@
             passphrase: "{{ sshpassphrase }}"
           async: 15
           poll: 0
-        - name: Create GPG key
-          ansible.builtin.command:
-            cmd: gpg --batch --passphrase {{ gpgpassphrase }} --quick-gen-key "Austin Lucas Lake <53884490+austinlucaslake@users.noreply.github.com>" ed25519 sign 1y
-          changed_when: false
-          async: 15
-          poll: 0
         - name: Fetch GitHub CLI GPG key
           ansible.builtin.get_url:
             url: https://cli.github.com/packages/githubcli-archive-keyring.gpg
@@ -152,17 +146,9 @@
           changed_when: false
           async: 120
           poll: 0
-        - name: Store GPG keyid
+        - name: Create GPG key
           ansible.builtin.command:
-            cmd: gpg --list-secret-keys --keyid-format=long | grep 'sec' | cut -d/ -f2- | cut -d ' ' -f-1
-          register: gpgkeyid
-          changed_when: false
-          async: 15
-          poll: 0
-        - name: Store GPG fingerprint
-          ansible.builtin.command:
-            cmd: gpg --list-options show-only-fpr-mbox --list-secret-keys | awk '{print $1}' | cut -d ' ' -f1- | head -n 1
-          register: gpgfingerprint
+            cmd: gpg --batch --passphrase {{ gpgpassphrase }} --quick-gen-key "Austin Lucas Lake <53884490+austinlucaslake@users.noreply.github.com>" ed25519 sign 1y
           changed_when: false
           async: 15
           poll: 0
@@ -180,18 +166,19 @@
           poll: 0
     - name: Batch 3
       block:
-        - name: Add GPG encryption subkey
+        - name: Store GPG keyid
           ansible.builtin.command:
-            cmd: gpg --batch --passphrase {{ gpgpassphrase }} --quick-add-key {{ gpgfingerprint.stdout_lines }} ed25519 sign 1y
+            cmd: gpg --list-secret-keys --keyid-format=long | grep 'sec' | cut -d/ -f2- | cut -d ' ' -f-1
+          register: gpgkeyid
           changed_when: false
           async: 15
           poll: 0
-        - name: Specify Git signing key
-          community.general.git_config:
-            name: user.signingkey
-            scope: global
-            value: "{{ gpgkeyid.stdout_lines }}"
-          async: 1
+        - name: Store GPG fingerprint
+          ansible.builtin.command:
+            cmd: gpg --list-options show-only-fpr-mbox --list-secret-keys | awk '{print $1}' | cut -d ' ' -f1- | head -n 1
+          register: gpgfingerprint
+          changed_when: false
+          async: 15
           poll: 0
         - name: Install GitHub CLI and Spotify
           ansible.builtin.apt:
@@ -271,6 +258,13 @@
             mode: preserve
           async: 1
           poll: 0
+    - name: Specify Git signing key
+      community.general.git_config:
+        name: user.signingkey
+        scope: global
+        value: "{{ gpgkeyid.stdout_lines }}"
+      async: 1
+      poll: 0
     - name: Batch 4
       when: token is defined
       block:
@@ -287,6 +281,7 @@
               changed_when: false
               async: 15
               poll: 0
+
             - name: GPG
               ansible.builtin.command:
                 cmd: gpg --armor --export {{ gpgkeyid.stdout_lines }} | gh gpg-key add - -t "$USER@$(hostname -s)"
