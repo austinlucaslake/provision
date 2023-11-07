@@ -30,6 +30,8 @@
         - name: Create SSH key
           ansible.builtin.command:
             cmd: "ssh-keygen -q -t ed25519 -a 100 -C 53884490+austinlucaslake@users.noreply.github.com -N {{ sshpassphrase }} -f ~/.ssh/$USER@$(hostname -s)"
+          become: true
+          become_user: "$USER"
           async: 15
           poll: 0
         - name: Fetch GitHub CLI GPG key
@@ -60,6 +62,9 @@
             repo: "git@github.com:austinlucaslake/{{ item }}.git"
             dest: "~/code/{{ item }}"
             accept_hostkey: true
+            key_file: "~/.ssh/$USER@$(hostname -s)"
+          become: true
+          become_user: "$USER"
           with_items:
             - "astrosight"
             - "dotfiles"
@@ -74,7 +79,9 @@
             repo: git@github.com:tmux-plugins/tpm.git
             dest: ~/.tmux/plugins/tpm
             accept_hostkey: true
-            update: false
+            key_file: "~/.ssh/$USER@$(hostname -s)"
+          become: true
+          become_user: "$USER"
           async: 60
           poll: 0
         - name: Run rustup installer
@@ -138,6 +145,7 @@
           poll: 0
     - name: Install GitHub CLI and Spotify
       ansible.builtin.apt:
+        update_cache: true
         package:
           - gh
           - spotify-client
