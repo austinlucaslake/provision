@@ -60,7 +60,7 @@
         - name: Clone personal GitHub repositories
           ansible.builtin.git:
             repo: "git@github.com:austinlucaslake/{{ item }}.git"
-            dest: "~/code/{{ item }}"
+            dest: "$HOME/code/{{ item }}"
             accept_hostkey: true
           with_items:
             - "astrosight"
@@ -74,7 +74,7 @@
         - name: Clone TPM repository
           ansible.builtin.git:
             repo: git@github.com:tmux-plugins/tpm.git
-            dest: ~/.tmux/plugins/tpm
+            dest: $HOME/.tmux/plugins/tpm
             accept_hostkey: true
             update: false
           async: 60
@@ -158,8 +158,8 @@
       poll: 0
     - name: Load Configuration files
       ansible.builtin.copy:
-        src: ~/code/dotfiles/"{{ item }}"
-        dest: ~/"{{ item }}"
+        src: "$HOME/code/dotfiles/{{ item }}"
+        dest: "$HOME/{{ item }}"
         mode: preserve
       with_items:
         - .bashrc
