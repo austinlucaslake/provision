@@ -202,62 +202,46 @@
             locked: true
           async: 60
           poll: 0
-        - name: Load .bashrc configuration file
-          ansible.builtin.copy:
-            src: ~/code/dotfiles/.bashrc
-            dest: ~/.bashrc
-            mode: preserve
-          async: 1
-          poll: 0
-        - name: Load .bash_profile configuration file
-          ansible.builtin.copy:
-            src: ~/code/dotfiles/.bash_profile
-            dest: ~/.bash_profile
-            mode: preserve
-          async: 1
-          poll: 0
-        - name: Load Alacritty configuration file
-          ansible.builtin.copy:
-            src: ~/code/dotfiles/.config/alacritty
-            dest: ~/.config/alacritty
-            mode: preserve
-          async: 1
-          poll: 0
-        - name: Load Neovim configuration file
-          ansible.builtin.copy:
-            src: ~/code/dotfiles/.config/nvim
-            dest: ~/.config/nvim
-            mode: preserve
-          async: 1
-          poll: 0
-        - name: Load GitHub CLI configuration file
-          ansible.builtin.copy:
-            src: ~/code/dotfiles/.config/gh
-            dest: ~/.config/gh
-            mode: preserve
-          async: 1
-          poll: 0
-        - name: Load .hushlogin configuration file
-          ansible.builtin.copy:
-            src: ~/code/dotfiles/.hushlogin
-            dest: ~/.hushlogin
-            mode: preserve
-          async: 1
-          poll: 0
-        - name: Load .profile configuration file
-          ansible.builtin.copy:
-            src: ~/code/dotfiles/.profile
-            dest: ~/.profile
-            mode: preserve
-          async: 1
-          poll: 0
-        - name: Load Tmux configuration file
-          ansible.builtin.copy:
-            src: ~/code/dotfiles/.tmux.conf
-            dest: ~/.tmux.conf
-            mode: preserve
-          async: 1
-          poll: 0
+    - name: Load .bashrc configuration file
+      ansible.builtin.copy:
+        src: ~/code/dotfiles/.bashrc
+        dest: ~/.bashrc
+        mode: preserve
+    - name: Load .bash_profile configuration file
+      ansible.builtin.copy:
+        src: ~/code/dotfiles/.bash_profile
+        dest: ~/.bash_profile
+        mode: preserve
+    - name: Load Alacritty configuration file
+      ansible.builtin.copy:
+        src: ~/code/dotfiles/.config/alacritty
+        dest: ~/.config/alacritty
+        mode: preserve
+    - name: Load Neovim configuration file
+      ansible.builtin.copy:
+        src: ~/code/dotfiles/.config/nvim
+        dest: ~/.config/nvim
+        mode: preserve
+    - name: Load GitHub CLI configuration file
+      ansible.builtin.copy:
+        src: ~/code/dotfiles/.config/gh
+        dest: ~/.config/gh
+        mode: preserve
+    - name: Load .hushlogin configuration file
+      ansible.builtin.copy:
+        src: ~/code/dotfiles/.hushlogin
+        dest: ~/.hushlogin
+        mode: preserve
+    - name: Load .profile configuration file
+      ansible.builtin.copy:
+        src: ~/code/dotfiles/.profile
+        dest: ~/.profile
+        mode: preserve
+    - name: Load Tmux configuration file
+      ansible.builtin.copy:
+        src: ~/code/dotfiles/.tmux.conf
+        dest: ~/.tmux.conf
+        mode: preserve
     - name: Specify Git signing key
       community.general.git_config:
         name: user.signingkey
