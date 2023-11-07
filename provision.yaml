@@ -17,7 +17,7 @@
           - nmap
           - openssh-client
           - openssh-server
-          - python-opencv
+          - python3-opencv
           - saods9
           - tmux
       become: true
