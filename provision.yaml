@@ -73,7 +73,7 @@
             - "rust_template"
             - "website"
           async: 360
-          poll: 0
+          poll: 30
         - name: Clone TPM repository
           ansible.builtin.git:
             repo: git@github.com:tmux-plugins/tpm.git
@@ -83,7 +83,7 @@
             key_file: "~/.ssh/$USER@$(hostname -s)"
           become: true
           async: 60
-          poll: 0
+          poll: 30
         - name: Run rustup installer
           ansible.builtin.command:
             cmd: sh -s -- default-toolchain stable -y
