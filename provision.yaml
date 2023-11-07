@@ -1,5 +1,5 @@
 ---
-- name: Porvision
+- name: Provision
   hosts: localhost
   connection: local
   become: true
