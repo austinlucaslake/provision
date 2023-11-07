@@ -47,7 +47,7 @@
             return_content: true
           register: rust_installer
           async: 15
-          poll: 0
+          poll: 5
         - name: Fetch Spotify GPG key
           ansible.builtin.apt_key:
             url: https://download.spotify.com/debian/pubkey_5E3C45D7B312C643.gpg
@@ -281,7 +281,6 @@
               changed_when: false
               async: 15
               poll: 0
-
             - name: GPG
               ansible.builtin.command:
                 cmd: gpg --armor --export {{ gpgkeyid.stdout }} | gh gpg-key add - -t "$USER@$(hostname -s)"
