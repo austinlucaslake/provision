@@ -16,8 +16,10 @@ Automated Debian setup process
 
 To provision a new Debian-based system, please run the following command:
 
-`sudo apt install -y --no-install-recommends curl && curl https://raw.githubusercontent.com/austinlucaslake/provision/main/provision.sh | sh -s -- PERSON_ACCESS_TOKEN`
+`sudo apt install -y --no-install-recommends curl && curl https://raw.githubusercontent.com/austinlucaslake/provision/main/provision.sh | sh -s -- PERSON_ACCESS_TOKEN SSH_PASSPHRASE GPG_PASSPHRASE`
 
 ## Note
 
 The keyword `PERSONAL_ACCESS_TOKEN` must be replaced with your GitHub Personal Access Token to authentication purposes.
+The keyword `SSH_PASSPHRASE` must be replaced with a new password to create an SSH key.
+The keyword `GPG_PASSPHRASE` must be replaced with a new password to create an GPG key.
