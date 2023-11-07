@@ -26,6 +26,7 @@
             deb:
               - https://downloads.slack-edge.com/linux_released/slack-desktop-4.3.2-amd64.deb
               - https://zoom.us/client/latest/zoom_amd_64.deb
+            clone: true
           async: 450
           poll: 0
         - name: Create SSH key
