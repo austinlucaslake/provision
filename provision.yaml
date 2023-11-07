@@ -3,6 +3,7 @@
   hosts: 127.0.0.1
   connection: local
   become: true
+  gather_facts: true
   tasks:
     - name: Batch 1
       block:
@@ -27,11 +28,8 @@
           async: 450
           poll: 0
         - name: Create SSH key
-          community.crypto.openssh_keypair:
-            type: ed25519
-            path: /Users/$USER/.ssh/$USER@$(hostname -s)
-            comment: 53884490+austinlucaslake@users.noreply.github.com
-            passphrase: "{{ sshpassphrase }}"
+          ansible.builtin.command:
+            cmd: "ssh-keygen -q -t ed25519 -a 100 -C 53884490+austinlucaslake@users.noreply.github.com -N {{ sshpassphrase }} -f ~/.ssh/$USER@$(hostname -s)"
           async: 15
           poll: 0
         - name: Fetch GitHub CLI GPG key
@@ -60,7 +58,7 @@
         - name: Clone personal GitHub repositories
           ansible.builtin.git:
             repo: "git@github.com:austinlucaslake/{{ item }}.git"
-            dest: "$HOME/code/{{ item }}"
+            dest: "~/code/{{ item }}"
             accept_hostkey: true
           with_items:
             - "astrosight"
@@ -74,7 +72,7 @@
         - name: Clone TPM repository
           ansible.builtin.git:
             repo: git@github.com:tmux-plugins/tpm.git
-            dest: $HOME/.tmux/plugins/tpm
+            dest: ~/.tmux/plugins/tpm
             accept_hostkey: true
             update: false
           async: 60
@@ -83,27 +81,23 @@
           ansible.builtin.command:
             cmd: sh -s -- default-toolchain stable -y
             stdin: "{{ rust_installer.content }}"
-          changed_when: false
           async: 120
           poll: 0
         - name: Create GPG key
           ansible.builtin.command:
             cmd: gpg --batch --passphrase {{ gpgpassphrase }} --quick-gen-key "Austin Lucas Lake <53884490+austinlucaslake@users.noreply.github.com>" ed25519 sign 1y
-          changed_when: false
           async: 15
           poll: 0
         - name: Load Spotify GPG key
           ansible.builtin.command:
             cmd: sudo gpg --dearmor --yes -o /etc/apt/trusted.gpg.d/spotify.gpg
             stdin: "{{ spotifygpgkey.content }}"
-          changed_when: false
           async: 15
           poll: 0
         - name: Load GitHub CLI GPG key and set file permissions
           ansible.builtin.command:
             cmd: sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg && sudo chmod go+r /usr/share/keyrings/githubcli-archive.keyring.gpg
             stdin: "{{ githubcligpgkey.content }}"
-          changed_when: false
           async: 15
           poll: 0
     - name: Batch 3
@@ -112,14 +106,12 @@
           ansible.builtin.command:
             cmd: gpg --list-secret-keys --keyid-format=long | grep 'sec' | cut -d/ -f2- | cut -d ' ' -f-1
           register: gpgkeyid
-          changed_when: false
           async: 15
           poll: 0
         - name: Store GPG fingerprint
           ansible.builtin.command:
             cmd: gpg --list-options show-only-fpr-mbox --list-secret-keys | awk '{print $1}' | cut -d ' ' -f1- | head -n 1
           register: gpgfingerprint
-          changed_when: false
           async: 15
           poll: 0
         - name: Add GitHub CLI apt repository to sources.list
@@ -137,16 +129,11 @@
         - name: Install clippy and rustfmt
           ansible.builtin.command:
             cmd: rustup component add clippy rustfmt
-          changed_when: false
           async: 60
           poll: 0
         - name: Install cargo-update, cargo-leptos, and trunk
-          community.general.cargo:
-            name:
-              - cargo-leptos
-              - cargo-update
-              - trunk
-            locked: true
+          ansible.builtin.command:
+            cmd: cargo install --locked cargo-leptos cargo-update trunk
           async: 60
           poll: 0
     - name: Install GitHub CLI and Spotify
@@ -158,8 +145,8 @@
       poll: 0
     - name: Load Configuration files
       ansible.builtin.copy:
-        src: "$HOME/code/dotfiles/{{ item }}"
-        dest: "$HOME/{{ item }}"
+        src: "~/code/dotfiles/{{ item }}"
+        dest: "~/{{ item }}"
         mode: preserve
       with_items:
         - .bashrc
@@ -171,10 +158,8 @@
         - .profile
         - .tmux.conf
     - name: Ensure Git is configured
-      community.general.git_config:
-        name: "{{ item.name }}"
-        scope: global
-        value: "{{ item.value }}"
+      ansible.builtin.command:
+        cmd: "git config --global {{ item.name }} {{ item.value }}"
       with_items:
         - { name: "user.name", value: "Austin Lake"}
         - { name: "user.email", value: "53884490+austinlucaslake@users.noreply.github.com"}
@@ -190,19 +175,16 @@
           ansible.builtin.command:
             cmd: gh auth login -p ssh --with-token
             stdin: "{{ token }}"
-          changed_when: false
         - name: Add cryptographic keys to GitHub profile
           block:
             - name: SSH
               ansible.builtin.command:
                 cmd: gh ssh-key add ~/.ssh/$USER@$(hostname -s).pub -t "$USER@$(hostname -s)"
-              changed_when: false
               async: 15
               poll: 0
             - name: GPG
               ansible.builtin.command:
                 cmd: gpg --armor --export {{ gpgkeyid.stdout }} | gh gpg-key add - -t "$USER@$(hostname -s)"
-              changed_when: false
               async: 15
               poll: 0
     - name: Reboot machine

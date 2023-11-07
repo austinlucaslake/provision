@@ -1,2 +1,4 @@
 provision.yaml latest[git]
 provision.yaml yaml[line-length]
+provision.yaml command-instead-of-module
+provision.yaml no-changed-when

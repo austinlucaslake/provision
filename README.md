@@ -16,7 +16,7 @@ Automated Debian setup process
 
 To provision a new Debian-based system, please run the following command:
 
-`sudo apt install -y --no-install-recommends curl && curl https://raw.githubusercontent.com/austinlucaslake/provision/main/provision.sh | sh -s -- PERSON_ACCESS_TOKEN SSH_PASSPHRASE GPG_PASSPHRASE`
+`sudo apt install -y --no-install-recommends curl ansible && curl https://raw.githubusercontent.com/austinlucaslake/provision/main/provision.yaml | ansible-playbook /dev/stdin -bK -e "token=PERSONAL_ACCESS_TOKEN sshpassphrase=SSH_PASSPHRASE gpgpassphrase=GPG_PASSPHRASE"`
 
 ## Note
 
