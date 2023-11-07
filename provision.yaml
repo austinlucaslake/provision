@@ -8,7 +8,7 @@
   tasks:
     - name: Batch 1
       block:
-        - name: Install Debian packages
+        - name: Install apt packages
           ansible.builtin.apt:
             package:
               - alacritty
@@ -23,18 +23,26 @@
               - python-opencv
               - saods9
               - tmux
+          become: true
+          become_user: root
+          async: 180
+          poll: 60
+        - name: Install Debian packages
+          ansible.builtin.apt:
             deb:
               - https://downloads.slack-edge.com/linux_released/slack-desktop-4.3.2-amd64.deb
               - https://zoom.us/client/latest/zoom_amd_64.deb
           become: true
-          async: 450
-          poll: 30
+          become_user: root
+          async: 120
+          poll: 40
         - name: Create SSH key
           ansible.builtin.command:
             cmd: "ssh-keygen -q -t ed25519 -a 100 -C 53884490+austinlucaslake@users.noreply.github.com -N {{ sshpassphrase }} -f ~/.ssh/$USER@$(hostname -s)"
           become: true
+          become_user: root
           async: 15
-          poll: 0
+          poll: 5
         - name: Fetch GitHub CLI GPG key
           ansible.builtin.uri:
             url: https://cli.github.com/packages/githubcli-archive-keyring.gpg
@@ -74,7 +82,7 @@
             - "rust_template"
             - "website"
           async: 360
-          poll: 30
+          poll: 60
         - name: Clone TPM repository
           ansible.builtin.git:
             repo: git@github.com:tmux-plugins/tpm.git
@@ -84,30 +92,30 @@
             key_file: "~/.ssh/$USER@$(hostname -s)"
           become: true
           async: 60
-          poll: 30
+          poll: 20
         - name: Run rustup installer
           ansible.builtin.command:
             cmd: sh -s -- default-toolchain stable -y
             stdin: "{{ rust_installer.content }}"
           async: 120
-          poll: 0
+          poll: 40
         - name: Create GPG key
           ansible.builtin.command:
             cmd: gpg --batch --passphrase {{ gpgpassphrase }} --quick-gen-key "Austin Lucas Lake <53884490+austinlucaslake@users.noreply.github.com>" ed25519 sign 1y
           async: 15
-          poll: 0
+          poll: 5
         - name: Load Spotify GPG key
           ansible.builtin.command:
             cmd: sudo gpg --dearmor --yes -o /etc/apt/trusted.gpg.d/spotify.gpg
             stdin: "{{ spotifygpgkey.content }}"
           async: 15
-          poll: 0
+          poll: 5
         - name: Load GitHub CLI GPG key and set file permissions
           ansible.builtin.command:
             cmd: sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg && sudo chmod go+r /usr/share/keyrings/githubcli-archive.keyring.gpg
             stdin: "{{ githubcligpgkey.content }}"
           async: 15
-          poll: 0
+          poll: 5
     - name: Batch 3
       block:
         - name: Store GPG keyid
@@ -115,35 +123,35 @@
             cmd: gpg --list-secret-keys --keyid-format=long | grep 'sec' | cut -d/ -f2- | cut -d ' ' -f-1
           register: gpgkeyid
           async: 15
-          poll: 0
+          poll: 5
         - name: Store GPG fingerprint
           ansible.builtin.command:
             cmd: gpg --list-options show-only-fpr-mbox --list-secret-keys | awk '{print $1}' | cut -d ' ' -f1- | head -n 1
           register: gpgfingerprint
           async: 15
-          poll: 0
+          poll: 5
         - name: Add GitHub CLI apt repository to sources.list
           ansible.builtin.apt_repository:
             repo: deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main
             filename: github-cli
           async: 15
-          poll: 0
+          poll: 5
         - name: Add Spotify apt repository to sources.list
           ansible.builtin.apt_repository:
             repo: deb http://repository.spotify.com stable non-free
             filename: spotify
           async: 15
-          poll: 0
+          poll: 5
         - name: Install clippy and rustfmt
           ansible.builtin.command:
             cmd: rustup component add clippy rustfmt
           async: 60
-          poll: 0
+          poll: 20
         - name: Install cargo-update, cargo-leptos, and trunk
           ansible.builtin.command:
             cmd: cargo install --locked cargo-leptos cargo-update trunk
           async: 60
-          poll: 0
+          poll: 20
     - name: Install GitHub CLI and Spotify
       ansible.builtin.apt:
         update_cache: true
@@ -151,7 +159,7 @@
           - gh
           - spotify-client
       async: 60
-      poll: 0
+      poll: 20
     - name: Load Configuration files
       ansible.builtin.copy:
         src: "~/code/dotfiles/{{ item }}"
@@ -177,7 +185,7 @@
         - { name: "commit.gpgsign", value: true }
         - { name: "user.signingkey", value: "{{ gpgkeyid.stdout }}" }
       async: 30
-      poll: 0
+      poll: 10
     - name: Batch 4
       when: token is defined
       block:
@@ -191,11 +199,11 @@
               ansible.builtin.command:
                 cmd: gh ssh-key add ~/.ssh/$USER@$(hostname -s).pub -t "$USER@$(hostname -s)"
               async: 15
-              poll: 0
+              poll: 5
             - name: GPG
               ansible.builtin.command:
                 cmd: gpg --armor --export {{ gpgkeyid.stdout }} | gh gpg-key add - -t "$USER@$(hostname -s)"
               async: 15
-              poll: 0
+              poll: 5
     - name: Reboot machine
       ansible.builtin.reboot:
