@@ -6,12 +6,26 @@
   become_user: root
   gather_facts: true
   tasks:
+    - name: Update apt repositories to Debian Sid
+      block:
+        - name: Remove old /etc/apt/sources.list
+          ansible.builting.file:
+            path: /etc/apt/sources.list
+            exists: false
+        - name: Create new /etc/apt/sources.list
+          ansible.builtin.blockinfile:
+            path: /etc/apt/sources.list
+            create: true
+            block: |
+              deb https://deb.debian.org/debian/ sid main contrib non-free non-free-firmware
+              deb-src https://deb.debian.org/debian/ sid main contrib non-free non-free-firmware
     - name: Install CLI apt packages
       ansible.builtin.apt:
+        force_apt_get: true
         update_cache: true
+        upgrade: dist
         package:
           - alacritty
-          - apt-transport-https
           - build-essential
           - conan
           - curl
@@ -19,33 +33,37 @@
           - firefox
           - git
           - gpg
+          - libvirt-daemon-system
+          - libvirt-clients
           - neovim
           - nmap
           - openssh-client
           - openssh-server
+          - pdm
           - python3-opencv
-          - python3-poetry
+          - qemu-system
           - saods9
-          - steam
           - tmux
-          - xz-utils
+          - virtinst
+          - xinit
+          - xorg
     - name: Install GUI Debian packages
       ansible.builtin.apt:
-        deb: "{{ item }}"
+        deb: {{ item }}
       with_items:
         - https://downloads.slack-edge.com/linux_released/slack-desktop-4.3.2-amd64.deb
         - https://zoom.us/client/latest/zoom_amd_64.deb
         - https://launcher.mojang.com/download/Minecraft.deb
     - name: Ensure SSH key is present
       ansible.builtin.command:
-        cmd: ssh-keygen -q -t ed25519 -a 100 -C 53884490+austinlucaslake@users.noreply.github.com -N {{ sshpassphrase }} -f ~/.ssh/$USER@$(hostname -s)
+        cmd: ssh-keygen -q -t ed25519 -a 100 -C 53884490+austinlucaslake@users.noreply.github.com -N {{ ssh_passphrase }} -f ~/.ssh/$USER@$(hostname -s)
       become: true
       become_user: root
     - name: Ensure GPG key is present
       block:
         - name: Create GPG key
           ansible.builtin.command:
-            cmd: gpg --batch --passphrase {{ gpgpassphrase }} --quick-gen-key "Austin Lucas Lake <53884490+austinlucaslake@users.noreply.github.com>" ed25519 sign 1y
+            cmd: gpg --batch --passphrase {{ gpg_passphrase }} --quick-gen-key "Austin Lucas Lake <53884490+austinlucaslake@users.noreply.github.com>" ed25519 sign 1y
         - name: Extract GPG keyid
           ansible.builtin.command:
             cmd: gpg --list-secret-keys --keyid-format=long | grep 'sec' | cut -d/ -f2- | cut -d ' ' -f-1
@@ -56,7 +74,7 @@
           register: gpg_fingerprint
         - name: Add encryption subkey to primary GPG key
           ansible.builtin.command:
-            cmd: gpg --batch --passphrase {{ gpgpassphrase }} --quick-add-key {{ gpgfingerprint.stdout }} ed25519 sign 1y
+            cmd: gpg --batch --passphrase {{ gpg_passphrase }} --quick-add-key {{ gpg_fingerprint.stdout }} ed25519 sign 1y
     - name: Set Git environment variables
       ansible.builtin.command:
         cmd: git config --global {{ item.name }} {{ item.value }}
@@ -65,11 +83,11 @@
         - { name: user.email, value: 53884490+austinlucaslake@users.noreply.github.com }
         - { name: core.sshCommand, value: /usr/bin/ssh -i ~/.ssh/$USER@$(hostname -s) }
         - { name: commit.gpgsign, value: true }
-        - { name: user.signingkey, value: "{{ gpg_keyid.stdout }}" }
+        - { name: user.signingkey, value: {{ gpg_keyid.stdout }} }
     - name: Clone Git repositories
       ansible.builtin.git:
         repo: git@github.com:{{ item.repo }}.git
-        dest: "{{ item.dest }}"
+        dest: {{ item.dest }}
         accept_hostkey: true
         clone: true
         key_file: ~/.ssh/$USER@$(hostname -s)
@@ -78,10 +96,9 @@
         - { repo: austinlucaslake/astrosight, dest: ~/code/astrosight }
         - { repo: austinlucaslake/c-template, dest: ~/code/c-template }
         - { repo: austinlucaslake/dotfiles, dest: ~/code/dotfiles }
-        - { repo: austinlucaslake/fizzy, dest: ~/code/fizzy }
+        - { repo: austinlucaslake/physecs, dest: ~/code/physecs }
         - { repo: austinlucaslake/provision, dest: ~/code/provision }
         - { repo: austinlucaslake/python-template, dest: ~/code/python-template }
-        - { repo: austinlucaslake/quaternion, dest: ~/code/quaternion }
         - { repo: austinlucaslake/rust-template, dest: ~/code/rust-template }
         - { repo: austinlucaslake/website, dest: ~/code/website }
         - { repo: tmux-plugins/tpm, dest: ~/.tmux/plugins/tpm }
@@ -91,11 +108,11 @@
           ansible.builtin.uri:
             url: https://download.docker.com/linux/debian/gpg
             return_content: true
-          register: docker_gpg_key
+          register: docker_gpg
         - name: Save Docker GPG key
           ansible.builtin.command:
             cmd: gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-            stdin: "{{ docker_gpg_key.content }}"
+            stdin: {{ docker_gpg.content }}
           become: true
         - name: Set Docker GPG key permissions
           ansible.builtin.command:
@@ -112,37 +129,20 @@
           ansible.builtin.uri:
             url: https://cli.github.com/packages/githubcli-archive-keyring.gpg
             return_content: true
-          register: githubcli_gpg_key
+          register: githubcli_gpg
         - name: Save GitHub CLI GPG key
           ansible.builtin.command:
             cmd: sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-            stdin: "{{ githubcli_gpg_key.content }}"
+            stdin: {{ githubcli_gpg.content }}
           become: true
         - name: Set GitHub CLI GPG key permissions
           ansible.builtin.command:
-            cmd: sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gp
+            cmd: sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
           become: true
         - name: Add GitHub CLI apt repository
           ansible.builtin.apt_repository:
             repo: deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main
             filename: github-cli
-          become: true
-    - name: Save I3 repository is available
-      block:
-        - name: Fetch I3 GPG key
-          ansible.builtin.uri:
-            url: https://baltocdn.com/i3-window-manager/signing.asc
-            return_content: true
-          register: i3_gpg_key
-        - name: Save I3 GPG key
-          ansible.builtin.command:
-            cmd: gpg --dearmor -o /etc/apt/trusted.gpg.d/i3wm-signing.gpg
-            stdin: "{{ i3_gpg_key.content }}"
-          become: true
-        - name: Add I3 repository
-          ansible.builtin.apt_repository:
-            repo: deb https://baltocdn.com/i3-window-manager/i3/i3-autobuild/ all main
-            filename: i3-autobuild
           become: true
     - name: Ensure Rust is installed
       block:
@@ -154,7 +154,7 @@
         - name: Install Rust
           ansible.builtin.command:
             cmd: sh -s -- default-toolchain stable -y
-            stdin: "{{ rust_installer.content }}"
+            stdin: {{ rust_installer.content }}
         - name: Install clippy and rustfmt
           ansible.builtin.command:
             cmd: rustup component add clippy rustfmt
@@ -167,11 +167,11 @@
           ansible.builtin.uri:
             url: https://download.spotify.com/debian/pubkey_7A3A762FAFD4A51F.gpg
             return_content: true
-          register: spotify_gpg_key
+          register: spotify_gpg
         - name: Save Spotify GPG key
           ansible.builtin.command:
             cmd: gpg --dearmor --yes -o /etc/apt/trusted.gpg.d/spotify.gpg
-            stdin: "{{ spotify_gpg_key.content }}"
+            stdin: {{ spotify_gpg.content }}
           become: true
         - name: Add Spotify repository
           ansible.builtin.apt_repository:
@@ -180,7 +180,7 @@
           become: true
     - name: Ensure Starship repository is available
       block:
-        - name: Fetch Spotify installer
+        - name: Fetch Starship installer
           ansible.builtin.uri:
             url: https://starship.rs/install.sh
             return_content: true
@@ -188,8 +188,8 @@
         - name: Install Starship
           ansible.builtin.command:
             cmd: sh
-            stdin: "{{ starship_installer.content }}"
-    - name: Install additional Debian packages are installed
+            stdin: {{ starship_installer.content }}
+    - name: Install additional Debian packages
       ansible.builtin.apt:
         update_cache: true
         package:
@@ -199,21 +199,19 @@
           - docker-buildx-plugin
           - docker-compose-plugin
           - gh
-          - i3
           - spotify-client
     - name: Load onfiguration files
       ansible.builtin.copy:
-        src: ~/code/dotfiles/dotfiles/
+        src: ~/code/dotfiles/src/
         dest: ~/
         mode: preserve
       become: true
     - name: GitHub authentication
-      when: token is defined
       block:
         - name: GitHub CLI authentication
           ansible.builtin.command:
             cmd: gh auth login --with-token
-            stdin: "{{ token }}"
+            stdin: {{ token }}
         - name: Add cryptographic keys to GitHub profile
           block:
             - name: SSH
