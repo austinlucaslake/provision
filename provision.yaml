@@ -1,5 +1,5 @@
 ---
-- name: Provision
+- name: Development Tools
   hosts: localhost
   connection: local
   become: true
@@ -24,16 +24,15 @@
         force_apt_get: true
         update_cache: true
         upgrade: dist
-        package:
+        name:
           - alacritty
           - build-essential
           - conan
           - curl
           - ca-certificates
-          - firefox
           - git
           - gpg
-          - libvirt-daemon-system
+          - libvirt-daemon-system 
           - libvirt-clients
           - neovim
           - nmap
@@ -47,13 +46,7 @@
           - virtinst
           - xinit
           - xorg
-    - name: Install GUI Debian packages
-      ansible.builtin.apt:
-        deb: {{ item }}
-      with_items:
-        - https://downloads.slack-edge.com/linux_released/slack-desktop-4.3.2-amd64.deb
-        - https://zoom.us/client/latest/zoom_amd_64.deb
-        - https://launcher.mojang.com/download/Minecraft.deb
+          - xz-utils=5.3.1
     - name: Ensure SSH key is present
       ansible.builtin.command:
         cmd: ssh-keygen -q -t ed25519 -a 100 -C 53884490+austinlucaslake@users.noreply.github.com -N {{ ssh_passphrase }} -f ~/.ssh/$USER@$(hostname -s)
@@ -64,10 +57,6 @@
         - name: Create GPG key
           ansible.builtin.command:
             cmd: gpg --batch --passphrase {{ gpg_passphrase }} --quick-gen-key "Austin Lucas Lake <53884490+austinlucaslake@users.noreply.github.com>" ed25519 sign 1y
-        - name: Extract GPG keyid
-          ansible.builtin.command:
-            cmd: gpg --list-secret-keys --keyid-format=long | grep 'sec' | cut -d/ -f2- | cut -d ' ' -f-1
-          register: gpg_keyid
         - name: Extract GPG fingerprint
           ansible.builtin.command:
             cmd: gpg --list-secret-keys --list-options show-only-fpr-mbox | awk '{print $1}' | cut -d ' ' -f1- | head -n 1
@@ -83,25 +72,8 @@
         - { name: user.email, value: 53884490+austinlucaslake@users.noreply.github.com }
         - { name: core.sshCommand, value: /usr/bin/ssh -i ~/.ssh/$USER@$(hostname -s) }
         - { name: commit.gpgsign, value: true }
-        - { name: user.signingkey, value: {{ gpg_keyid.stdout }} }
-    - name: Clone Git repositories
-      ansible.builtin.git:
-        repo: git@github.com:{{ item.repo }}.git
-        dest: {{ item.dest }}
-        accept_hostkey: true
-        clone: true
-        key_file: ~/.ssh/$USER@$(hostname -s)
-      become: true
-      with_items:
-        - { repo: austinlucaslake/astrosight, dest: ~/code/astrosight }
-        - { repo: austinlucaslake/c-template, dest: ~/code/c-template }
-        - { repo: austinlucaslake/dotfiles, dest: ~/code/dotfiles }
-        - { repo: austinlucaslake/physecs, dest: ~/code/physecs }
-        - { repo: austinlucaslake/provision, dest: ~/code/provision }
-        - { repo: austinlucaslake/python-template, dest: ~/code/python-template }
-        - { repo: austinlucaslake/rust-template, dest: ~/code/rust-template }
-        - { repo: austinlucaslake/website, dest: ~/code/website }
-        - { repo: tmux-plugins/tpm, dest: ~/.tmux/plugins/tpm }
+        - { name: user.signingkey, value: {{ gpg_fingerprint.stdout }} }
+
     - name: Ensure Docker GPG key is saved
       block:
         - name: Fetch Docker GPG key
@@ -144,6 +116,31 @@
             repo: deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main
             filename: github-cli
           become: true
+    - name: Install additional Debian packages
+      ansible.builtin.apt:
+        force_apt_get: true
+        update_cache: true
+        name:
+          - containerd.io
+          - docker-ce
+          - docker-ce-cli
+          - docker-buildx-plugin
+          - docker-compose-plugin
+          - gh
+    - name: GitHub authentication
+      block:
+        - name: GitHub CLI authentication
+          ansible.builtin.command:
+            cmd: gh auth login --with-token
+            stdin: {{ token }}
+        - name: Add cryptographic keys to GitHub profile
+          block:
+            - name: SSH
+              ansible.builtin.command:
+                cmd: gh ssh-key add ~/.ssh/$USER@$(hostname -s).pub -t $USER@$(hostname -s)
+            - name: GPG
+              ansible.builtin.command:
+                cmd: gpg --armor --export {{ gpg_fingerprint.stdout }} | gh gpg-key add - -t $USER@$(hostname -s)
     - name: Ensure Rust is installed
       block:
         - name: Fetch Rust installer
@@ -161,23 +158,6 @@
         - name: Install cargo-update, cargo-leptos, and trunk
           ansible.builtin.command:
             cmd: cargo install --locked cargo-leptos cargo-update trunk
-    - name: Ensure Spotify repository is available
-      block:
-        - name: Fetch Spotify GPG key
-          ansible.builtin.uri:
-            url: https://download.spotify.com/debian/pubkey_7A3A762FAFD4A51F.gpg
-            return_content: true
-          register: spotify_gpg
-        - name: Save Spotify GPG key
-          ansible.builtin.command:
-            cmd: gpg --dearmor --yes -o /etc/apt/trusted.gpg.d/spotify.gpg
-            stdin: {{ spotify_gpg.content }}
-          become: true
-        - name: Add Spotify repository
-          ansible.builtin.apt_repository:
-            repo: deb http://repository.spotify.com stable non-free
-            filename: spotify
-          become: true
     - name: Ensure Starship repository is available
       block:
         - name: Fetch Starship installer
@@ -189,36 +169,29 @@
           ansible.builtin.command:
             cmd: sh
             stdin: {{ starship_installer.content }}
-    - name: Install additional Debian packages
-      ansible.builtin.apt:
-        update_cache: true
-        package:
-          - containerd.io
-          - docker-ce
-          - docker-ce-cli
-          - docker-buildx-plugin
-          - docker-compose-plugin
-          - gh
-          - spotify-client
+    - name: Clone Git repositories
+      ansible.builtin.git:
+        repo: git@github.com:{{ item.repo }}.git
+        dest: {{ item.dest }}
+        accept_hostkey: true
+        clone: true
+        key_file: ~/.ssh/$USER@$(hostname -s)
+      become: true
+      with_items:
+        - { repo: austinlucaslake/astrosight, dest: ~/code/astrosight }
+        - { repo: austinlucaslake/c-template, dest: ~/code/c-template }
+        - { repo: austinlucaslake/dotfiles, dest: ~/code/dotfiles }
+        - { repo: austinlucaslake/physecs, dest: ~/code/physecs }
+        - { repo: austinlucaslake/provision, dest: ~/code/provision }
+        - { repo: austinlucaslake/python-template, dest: ~/code/python-template }
+        - { repo: austinlucaslake/rust-template, dest: ~/code/rust-template }
+        - { repo: austinlucaslake/website, dest: ~/code/website }
+        - { repo: tmux-plugins/tpm, dest: ~/.tmux/plugins/tpm }
     - name: Load onfiguration files
       ansible.builtin.copy:
         src: ~/code/dotfiles/src/
         dest: ~/
         mode: preserve
       become: true
-    - name: GitHub authentication
-      block:
-        - name: GitHub CLI authentication
-          ansible.builtin.command:
-            cmd: gh auth login --with-token
-            stdin: {{ token }}
-        - name: Add cryptographic keys to GitHub profile
-          block:
-            - name: SSH
-              ansible.builtin.command:
-                cmd: gh ssh-key add ~/.ssh/$USER@$(hostname -s).pub -t $USER@$(hostname -s)
-            - name: GPG
-              ansible.builtin.command:
-                cmd: gpg --armor --export {{ gpg_keyid.stdout }} | gh gpg-key add - -t $USER@$(hostname -s)
     - name: Reboot machine
       ansible.builtin.reboot:
