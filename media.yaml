@@ -1,0 +1,45 @@
+---
+- name: Media
+  hosts: localhost
+  connection: local
+  become: true
+  become_user: root
+  gather_facts: true
+    - name: Ensure Spotify repository is available
+      block:
+        - name: Fetch Spotify GPG key
+          ansible.builtin.uri:
+            url: https://download.spotify.com/debian/pubkey_7A3A762FAFD4A51F.gpg
+            return_content: true
+          register: spotify_gpg
+        - name: Save Spotify GPG key
+          ansible.builtin.command:
+            cmd: gpg --dearmor --yes -o /etc/apt/trusted.gpg.d/spotify.gpg
+            stdin: {{ spotify_gpg.content }}
+          become: true
+        - name: Add Spotify repository
+          ansible.builtin.apt_repository:
+            repo: deb http://repository.spotify.com stable non-free
+            filename: spotify
+          become: trueasks:
+    - name: Install apt packages
+      ansible.builtin.apt:
+        force_apt_get: true
+        name:
+          - firefox
+          - libgl1-mesa-dri:i386
+          - libglx-mesa0:i386
+          - mesa-vulkan-drivers
+          - mesa-vulkan-drivers:i386
+          - spotify-client
+          - steam-installer
+- name: Install Debian packaged programs
+      ansible.builtin.apt:
+        force_apt_get: true
+        deb: {{ item }}
+      with_items:
+        - https://discord.com/api/download?platform=linux&format=deb
+        - https://downloads.slack-edge.com/linux_released/slack-desktop-4.3.2-amd64.deb
+        - https://zoom.us/client/latest/zoom_amd_64.deb
+        - https://launcher.mojang.com/download/Minecraft.deb
+ 
