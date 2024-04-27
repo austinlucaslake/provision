@@ -32,6 +32,7 @@
           - ca-certificates
           - git
           - gpg
+          - i3
           - libvirt-daemon-system 
           - libvirt-clients
           - neovim
@@ -47,33 +48,43 @@
           - xinit
           - xorg
           - xz-utils=5.3.1
+    - name: Set I3 as default window manager
+      community.general.alternatives:
+        link: /usr/bin/x-session-manager
+        name: x-session-manager
+        path: /usr/bin/i3
+        priority: 60
     - name: Ensure SSH key is present
-      ansible.builtin.command:
-        cmd: ssh-keygen -q -t ed25519 -a 100 -C 53884490+austinlucaslake@users.noreply.github.com -N {{ ssh_passphrase }} -f ~/.ssh/$USER@$(hostname -s)
-      become: true
-      become_user: root
+      community.crypto.openssh_keypair:
+        path: $HOME/.ssh/$USER@$(hostname -s)
+        type: ed25519
+        comment: 53884490+austinlucaslake@users.noreply.github.com
+        passphrase: {{ ssh_passphrase }}
     - name: Ensure GPG key is present
       block:
         - name: Create GPG key
           ansible.builtin.command:
-            cmd: gpg --batch --passphrase {{ gpg_passphrase }} --quick-gen-key "Austin Lucas Lake <53884490+austinlucaslake@users.noreply.github.com>" ed25519 sign 1y
-        - name: Extract GPG fingerprint
-          ansible.builtin.command:
-            cmd: gpg --list-secret-keys --list-options show-only-fpr-mbox | awk '{print $1}' | cut -d ' ' -f1- | head -n 1
+            cmd: gpg --batch --yes --log-file /dev/stdout --gen-key <(echo "Key-Type: eddsa"; \
+                                                                      echo "Key-Curve: Ed25519"; \
+                                                                      echo "Subkey-Type: eddsa"; \
+                                                                      echo "Subkey-Curve: Ed25519"; \
+                                                                      echo "Name-Real: Austin Lucas Lake"; \
+                                                                      echo "Name-Comment: $(hostname -s)"; \
+                                                                      echo "Name-Email: 53884490+austinlucaslake@users.noreply.github.com"; \
+                                                                      echo "Expire-Date: 0"; \
+                                                                      echo "Passphrase: {{ gpg_passphrase }}";) | sed -n 's/^\(      \)\([[:alnum:]]*\).*/\2/p'
           register: gpg_fingerprint
-        - name: Add encryption subkey to primary GPG key
-          ansible.builtin.command:
-            cmd: gpg --batch --passphrase {{ gpg_passphrase }} --quick-add-key {{ gpg_fingerprint.stdout }} ed25519 sign 1y
     - name: Set Git environment variables
-      ansible.builtin.command:
-        cmd: git config --global {{ item.name }} {{ item.value }}
+      community.general.git_config:
+        scope: global
+        name: {{ item.name }}
+        value: {{ item.value }}
       with_items:
         - { name: user.name, value: Austin Lucas Lake }
         - { name: user.email, value: 53884490+austinlucaslake@users.noreply.github.com }
-        - { name: core.sshCommand, value: /usr/bin/ssh -i ~/.ssh/$USER@$(hostname -s) }
+        - { name: core.sshCommand, value: /usr/bin/ssh -i $HOME/.ssh/$USER@$(hostname -s) }
         - { name: commit.gpgsign, value: true }
         - { name: user.signingkey, value: {{ gpg_fingerprint.stdout }} }
-
     - name: Ensure Docker GPG key is saved
       block:
         - name: Fetch Docker GPG key
@@ -128,24 +139,26 @@
           - docker-compose-plugin
           - gh
     - name: GitHub authentication
-      block:
-        - name: GitHub CLI authentication
-          ansible.builtin.command:
-            cmd: gh auth login --with-token
-            stdin: {{ token }}
-        - name: Add cryptographic keys to GitHub profile
+      block:   
+        - name: Add SSH key to GitHub
+          community.general.github_key:
+            name: $USER@$(hostname -s)
+            token: {{ token }}
+            pubkey: "{{ lookup('ansible.builtin.file', '$HOME/.ssh/$USER@$(hostname -s)') }}"
+        - name: Add GPG key to GitHub 
           block:
-            - name: SSH
+            - name: Authorize GitHub CLI
               ansible.builtin.command:
-                cmd: gh ssh-key add ~/.ssh/$USER@$(hostname -s).pub -t $USER@$(hostname -s)
-            - name: GPG
+              cmd: gh auth login --with-token
+              stdin: {{ token }}
+            - name: Add GPG
               ansible.builtin.command:
                 cmd: gpg --armor --export {{ gpg_fingerprint.stdout }} | gh gpg-key add - -t $USER@$(hostname -s)
     - name: Ensure Rust is installed
       block:
         - name: Fetch Rust installer
           ansible.builtin.uri:
-            url: https://sh.rustup.rs
+            url: https//sh.rustup.rs
             return_content: true
           register: rust_installer
         - name: Install Rust
@@ -155,9 +168,13 @@
         - name: Install clippy and rustfmt
           ansible.builtin.command:
             cmd: rustup component add clippy rustfmt
-        - name: Install cargo-update, cargo-leptos, and trunk
-          ansible.builtin.command:
-            cmd: cargo install --locked cargo-leptos cargo-update trunk
+        - name: Install cargo binaries
+          community.general.cargo:
+            locked: true
+            name:
+              - cargo-leptos
+              - cargo-update
+              - trunk
     - name: Ensure Starship repository is available
       block:
         - name: Fetch Starship installer
@@ -175,23 +192,26 @@
         dest: {{ item.dest }}
         accept_hostkey: true
         clone: true
-        key_file: ~/.ssh/$USER@$(hostname -s)
+        key_file: $HOME/.ssh/$USER@$(hostname -s)
       become: true
       with_items:
-        - { repo: austinlucaslake/astrosight, dest: ~/code/astrosight }
-        - { repo: austinlucaslake/c-template, dest: ~/code/c-template }
-        - { repo: austinlucaslake/dotfiles, dest: ~/code/dotfiles }
-        - { repo: austinlucaslake/physecs, dest: ~/code/physecs }
-        - { repo: austinlucaslake/provision, dest: ~/code/provision }
-        - { repo: austinlucaslake/python-template, dest: ~/code/python-template }
-        - { repo: austinlucaslake/rust-template, dest: ~/code/rust-template }
-        - { repo: austinlucaslake/website, dest: ~/code/website }
-        - { repo: tmux-plugins/tpm, dest: ~/.tmux/plugins/tpm }
-    - name: Load onfiguration files
+        - { repo: austinlucaslake/astrosight, dest: $HOME/code/astrosight }
+        - { repo: austinlucaslake/c-template, dest: $HOME/code/c-template }
+        - { repo: austinlucaslake/dotfiles, dest: $HOME/code/dotfiles }
+        - { repo: austinlucaslake/physecs, dest: $HOME/code/physecs }
+        - { repo: austinlucaslake/provision, dest: $HOME/code/provision }
+        - { repo: austinlucaslake/python-template, dest: $HOME/code/python-template }
+        - { repo: austinlucaslake/rust-template, dest: $HOME/code/rust-template }
+        - { repo: austinlucaslake/website, dest: $HOME/code/website }
+        - { repo: tmux-plugins/tpm, dest: $HOME/.tmux/plugins/tpm }
+    - name: Load configuration files
       ansible.builtin.copy:
-        src: ~/code/dotfiles/src/
-        dest: ~/
+        src: $HOME/code/dotfiles/src/
+        dest: $HOME/
         mode: preserve
       become: true
+    - name: GUI packages
+      when: not headless | default(false) | bool
+      block:
     - name: Reboot machine
       ansible.builtin.reboot:
