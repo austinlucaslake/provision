@@ -6,7 +6,6 @@
   gather_facts: true
   vars:
     user_at_hostname: "{{ ansible_user_id + '@' + ansible_hostname }}"
-    ssh_key_path: "{{ ansible_user_dir + '/.ssh/id_ed25519' }}"
   tasks:
     - name: Install distro-info and python3-debian packages to manage debian repositries.
       ansible.builtin.apt:
@@ -95,16 +94,17 @@
         #      block:
         #        - name: Create SSH key
         #          community.crypto.openssh_keypair:
-        #            path: "{{ ssh_key_path }}"
+        #            path: "{{ '$HOME/.ssh/id_ed25519' | ansible.buitlin.expandvars }}"
         #            type: ed25519
         #            comment: "{{ user_at_hostname }}"
         #            passphrase: "{{ ssh_passphrase }}"
         #          when: ssh_passphrase | length > 0
+        #          register: ssh_key
         #        - name: Add SSH key to GitHub
         #          community.general.github_key:
         #            name: "{{ user_at_hostname }}"
         #            token: "{{ token }}"
-        #            pubkey: "{{ lookup('ansible.builtin.file', ssh_key_path + '.pub') }}"
+        #            pubkey: "{{ lookup('ansible.builtin.file', ssh_key.filename + '.pub' | ansible.builtin.quote) }}"
         #          when: token | length > 0
         #    - name: Setup GPG key
         #      block:
@@ -147,7 +147,7 @@
         clone: true
         update: false
         version: HEAD
-        key_file: "{{ ssh_key_path }}"
+        key_file: "{{ ssh_key.filename }}"
       with_items:
         - repo: git@github.com:austinlucaslake/astrosight.git  
           dest: $HOME/code/astrosight
@@ -172,7 +172,7 @@
         src: "{{ item.src  }}" 
         dest: "{{ ansible_user_dir }"
         mode: preserve
-      with_filetree: "{{ $HOME/code/dotfiles/src/ | ansible.builtin.expandvars }}"
+      with_filetree: "{{ '$HOME/code/dotfiles/src/' | ansible.builtin.expandvars }}"
       when: item.state == 'file'
     - name: Install Rust
       block:
