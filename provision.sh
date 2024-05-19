@@ -20,7 +20,7 @@ options:
 TOKEN=""
 SSH_PASSPHRASE=""
 GPG_PASSPHRASE=""
-DESKTOP=false
+DESKTOP="false"
 
 options=$(getopt -o "ht:s:g:d" -l "help,token:,ssh_passphrase:,gpg_passphrase:,desktop" -- "$@")
 if [ $? -ne 0 ]; then
@@ -40,8 +40,6 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-sudo apt-get -y install ansible curl
-ansible-galaxy collection install --ignore-errors community.general community.crypto
-curl -sS https://raw.githubusercontent.com/austinlucaslake/provision/main/provision.yaml \
-    | ansible-playbook /dev/stdin -K -e \
-    "{'token':$TOKEN, 'ssh_passphrase': $SSH_PASSPHRASE, 'gpg_passphrase': $GPG_PASSPHRASE, 'desktop': $DESKTOP }" 
+sudo apt -y --no-install-recommends install ansible curl
+ansible-galaxy collection install community.general community.crypto
+curl -sS https://raw.githubusercontent.com/austinlucaslake/provision/main/provision.yaml | ansible-playbook /dev/stdin -K -e "{'token':$TOKEN, 'ssh_passphrase': $SSH_PASSPHRASE, 'gpg_passphrase': $GPG_PASSPHRASE, 'desktop': $DESKTOP}" 

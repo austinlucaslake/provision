@@ -7,108 +7,114 @@
   vars:
     user_at_hostname: "{{ ansible_user_id + '@' + ansible_hostname }}"
   tasks:
-    - name: Install distro-info and python3-debian packages to manage debian repositries.
+    - name: Install Debian/apt package tooling
       ansible.builtin.apt:
         force_apt_get: true
         name:
           - distro-info
           - python3-debian
       become: true
-    - name: Update apt sources to Debian Sid
-      ansible.builtin.copy:
-        path: /etc/apt/sources.list
-        mode: preserve
-        content: |
-          deb https://deb.debian.org/debian/ sid main contrib non-free non-free-firmware
-          deb-src https://deb.debian.org/debian/ sid main contrib non-free non-free-firmware
-      become: true
     - name: Add Docker apt repository
       ansible.builtin.deb822_repository:
         name: docker
         uris: https://download.docker.com/linux/debian
-        architectures: "{{ ansible_architecture == 'x86_64' | ansible.builtin.ternary('amd64', 'arm64') }}"
+        architectures: "{{ (ansible_architecture == 'x86_64') | ansible.builtin.ternary('amd64', 'arm64') }}"
         suites: "{{ lookup('ansible.builtin.pipe', 'distro-info --stable') }}"
-        components:
-          - stable
+        components: stable
         signed_by: https://download.docker.com/linux/debian/gpg
       become: true
-    - name: Add Docker apt repository
-      ansible.builtin.deb822_repository:
-        name: docker
-        uris: http://packages.ros.org/ros2/ubuntu
-        architectures: "{{ ansible_architecture == 'x86_64' | ansible.builtin.ternary('amd64', 'arm64') }}"
-        suites: "{{ ansible_distribution_release }}"
-        components:
-          - main
-        signed_by: https://raw.githubusercontent.com/ros/rosdistro/master/ros.key
-      become: true
+    - name: Upgrade to Debian Sid
+      when: ansible_distribution_release != lookup('ansible.builtin.pipe', 'distro-info --testing')
+      block:
+        - name: Update apt sources to Debian Sid
+          ansible.builtin.copy:
+            dest: /etc/apt/sources.list
+            mode: preserve
+            content: |
+              deb https://deb.debian.org/debian/ sid main contrib non-free non-free-firmware
+              deb-src https://deb.debian.org/debian/ sid main contrib non-free non-free-firmware
+          become: true
+        - name: Update distribution to Debian Sid
+          ansible.builtin.apt:
+            force_apt_get: true
+            upgrade: dist
+          become: true
     - name: Install CLI apt packages
       ansible.builtin.apt:
         force_apt_get: true
         update_cache: true
-        upgrade: "{{ lookup('ansible.builtin.pipe', 'distro-info --testing') == ansible_distribution_release | ansible.builtin.ternary('yes', 'dist') }}"
         name:
-          - apt-transport-https
-          - bash-autocomplete
+          - ansible
+          - ansible-lint
+          - bash-completion
           - build-essential
           - ca-certificates
-          - conan
           - containerd.io
           - curl
           - docker-ce
           - docker-ce-cli
           - docker-buildx-plugin
           - docker-compose-plugin
-          - git
           - gh
-          - gpg
+          - git
+          - gnupg
           - libopencv-dev
-          - libvirt-daemon-system
           - libvirt-clients
+          - libvirt-daemon-system
           - lshw
-          - neovim
           - nmap
-          - nvidia-cuda-toolkit
-          - nvidia-drivers
-          - nvidia-kernel-dkms
+          - neovim
           - openssh-client
           - openssh-server
           - openssl
-          - pdm
-          - python3
+          - picom
+          - python3-argcomplete
+          - python3-full
           - python3-opencv
           - python3-pip
+          - python3-pdm
+          - python3-setuptools
           - python3-virtualenv
-          - python3-autocomplete
           - qemu-system
-          - ros-dev-tools
-          - ros-rolling-ros-base
-          - saods9
+          - rsync
           - tmux
+          - usbutils
           - virtinst
-          - xinit
+          - xbase-clients
           - xorg
           - xz-utils
       become: true
-        #    - name: Setup SSH key
-        #      block:
-        #        - name: Create SSH key
-        #          community.crypto.openssh_keypair:
-        #            path: "{{ '$HOME/.ssh/id_ed25519' | ansible.buitlin.expandvars }}"
-        #            type: ed25519
-        #            comment: "{{ user_at_hostname }}"
-        #            passphrase: "{{ ssh_passphrase }}"
-        #          when: ssh_passphrase | length > 0
-        #          register: ssh_key
-        #        - name: Add SSH key to GitHub
-        #          community.general.github_key:
-        #            name: "{{ user_at_hostname }}"
-        #            token: "{{ token }}"
-        #            pubkey: "{{ lookup('ansible.builtin.file', ssh_key.filename + '.pub' | ansible.builtin.quote) }}"
-        #          when: token | length > 0
+    - name: Install NVIDIA tooling
+      when: false
+      block:
+        - name: Install NVIDIA apt packages
+          ansible.builtin.apt:
+            force_apt_get: true
+            name:
+              - nvidia-cuda-toolkit
+              - nvidia-driver
+              - nvidia-kernel-dkms
+          become: true
+    - name: Setup SSH key
+      when: ssh_passphrase | default("", true) | length > 0
+      block:
+        - name: Create SSH key
+          community.crypto.openssh_keypair:
+            path: "{{ ansible_user_dir + '/.ssh/id_ed25519' | ansible.builtin.quote }}"
+            type: ed25519
+            comment: "{{ user_at_hostname }}"
+            passphrase: "{{ ssh_passphrase }}"
+          register: ssh_key
+        - name: Add SSH key to GitHub
+          when: token | default("", true) | length > 0
+          community.general.github_key:
+            name: "{{ user_at_hostname }}"
+            token: "{{ token }}"
+            pubkey: "{{ lookup('ansible.builtin.file', ansible_user_dir + '/.ssh/id_ed25519.pub' | ansible.builtin.quote) }}"
         #    - name: Setup GPG key
         #      block:
         #        - name: Create GPG key
+        #          when: gpg_passphrase | default("", true) | length > 0
         #          community.crypto.gpg_keypair:
         #            key_type: EDDSA
         #            key_curve: ed25519
@@ -132,123 +138,142 @@
         #            email: git@austinlucaslake.com
         #            passphrase: "{{ gpg_passphrase }}"
         #          register: gpg_key
-        #          when: gpg_passphrase | length > 0
         #        - name: Add GPG key to GitHub
+        #          when: token | default("", true) | length > 0
         #          community.general.github_gpg_key:
         #            token: "{{ token }}"
         #            name: "{{ user_at_hostname }}"
         #            armored_public_key: "{{ gpg_key.fingerprints[0] | community.crypto.gpg_armor_export }}"
-        #          when: token
-    - name: Clone Git repositories
-      ansible.builtin.git:
-        repo: "{{ item.repo }}"
-        dest: "{{ item.dest | ansible.builtin.expandvars }}"
-        accept_hostkey: true
-        clone: true
-        update: false
-        version: HEAD
-        key_file: "{{ ssh_key.filename }}"
-      with_items:
-        - repo: git@github.com:austinlucaslake/astrosight.git  
-          dest: $HOME/code/astrosight
-        - repo: git@github.com:austinlucaslake/c-template.git  
-          dest: $HOME/code/c-template
-        - repo: git@github.com:austinlucaslake/dotfiles.git  
-          dest: $HOME/code/dotfiles
-        - repo: git@github.com:austinlucaslake/physecs.git  
-          dest: $HOME/code/physecs
-        - repo: git@github.com:austinlucaslake/provision.git  
-          dest: $HOME/code/provision
-        - repo: git@github.com:austinlucaslake/py-template.git  
-          dest: $HOME/code/py-template
-        - repo: git@github.com:austinlucaslake/rs-template.git  
-          dest: $HOME/code/rs-template
-        - repo: git@github.com:austinlucaslake/website.git
-          dest: $HOME/code/website
-        - repo: git@github.com:tmux-plugins/tpm.git  
-          dest: $HOME/.tmux/plugins/tpm
-    - name: Load configuration files
-      ansible.builtin.template:
-        src: "{{ item.src  }}" 
-        dest: "{{ ansible_user_dir }"
-        mode: preserve
-      with_filetree: "{{ '$HOME/code/dotfiles/src/' | ansible.builtin.expandvars }}"
-      when: item.state == 'file'
+    - name: Check if Rust is installed
+      ansible.builtin.command:
+        cmd: cargo --version
+      register: rust_check
+      changed_when: false
+      ignore_errors: true
     - name: Install Rust
+      when: rust_check is failed
       block:
-        - name: Fetch Rust install scropt
+        - name: Fetch Rust Installer
           ansible.builtin.uri:
-            url: https//sh.rustup.rs
+            url: https://sh.rustup.rs
             return_content: true
-          register: rust_install_script
-        - name: Run Rust install scropt
+          register: rust_installer
+        - name: Run Rust installer
           ansible.builtin.command:
-            cmd: sh -s -- -y --default-toolchain stable -c clippy rustfmt
-            stdin: "{{ rust_install_script.content }}"
+            cmd: sh -s -- -q -y --default-toolchain stable --component clippy rustfmt
+            stdin: "{{ rust_installer.content }}"
           register: rust_install
-          changed_when: rust_install.rc == 0 
-        - name: Install cargo packages
+          changed_when: rust_install.rc == 0
+        - name: Install cargo binaries
           community.general.cargo:
             locked: true
             name:
               - cargo-leptos
-              - cargo-update
               - trunk
-    - name: Install Starship
+    - name: Setup Git
       block:
-        - name: Fetch Starship install script
-          ansible.builtin.uri:
-            url: https://starship.rs/install.sh
-            return_content: true
-          register: starship_install_script
-        - name: Run Starship install script
-          ansible.builtin.command:
-            cmd: sh -s --
-            stdin: "{{ starship_install_script.content }}"
-          register: starship_install
-          changed_when: starship_install.rc == 0
-    - name: Install CUDA
-      when: false
-      ansible.builtin.apt:
-        force_apt_get: true
-        name:
-          - nvidia-cuda-toolkit
-          - nvidia-drivers
-          - nvidia-kernel-dkms
+        - name: Set initial Git configuration
+          block:
+            - name: Set Git user.name
+              community.general.git_config:
+                name: "{{ item.name }}"
+                scope: global
+                value: "{{ item.value }}"
+              with_items:
+                - name: user.name
+                  value: Austin Lucas Lake
+                - name: user.email
+                  value: git@austinlucaslake.com
+        - name: Clone Git repositories
+          ansible.builtin.git:
+            repo: "{{ item.repo }}"
+            dest: "{{ item.dest | ansible.builtin.expanduser }}"
+            accept_newhostkey: true
+            clone: true
+            update: false
+            version: main
+            key_file: "{{ ansible_user_dir + '/.ssh/id_ed25519' | ansible.builtin.quote }}"
+          with_items:
+            - repo: git@github.com:austinlucaslake/astrosight.git
+              dest: ~/code/astrosight
+            - repo: git@github.com:austinlucaslake/c-template.git
+              dest: ~/code/c-template
+            - repo: git@github.com:austinlucaslake/dotfiles.git
+              dest: ~/code/dotfiles
+            - repo: git@github.com:austinlucaslake/physecs.git
+              dest: ~/code/physecs
+            - repo: git@github.com:austinlucaslake/provision.git
+              dest: ~/code/provision
+            - repo: git@github.com:austinlucaslake/py-template.git
+              dest: ~/code/py-template
+            - repo: git@github.com:austinlucaslake/rs-template.git
+              dest: ~/code/rs-template
+            - repo: git@github.com:austinlucaslake/website.git
+              dest: ~/code/website
+            - repo: git@github.com:tmux-plugins/tpm.git
+              dest: ~/.tmux/plugins/tpm
+    - name: Authenicate GitHub profile
+      when: token | default("", true) | length > 0
+      ansible.builtin.command:
+        cmd: gh auth login --with-token "{{ token }}"
+      register: gh_auth
+      changed_when: gh_auth.rc == 0
+    - name: Load configuration files
+      ansible.builtin.template:
+        src: "{{ item.src }}"
+        dest: "{{ ansible_user_dir + '/' + item }}"
+        mode: preserve
+      with_community.general.filetree: "{{ ansible_user_dir + 'code/dotfiles/src/' }}"
     - name: Install desktop packages
       when: desktop | bool
       block:
-        - name: Add Spotify repository
+        - name: Add Spotify apt repository
           ansible.builtin.deb822_repository:
             name: spotify
+            architectures: amd64
+            signed_by: https://download.spotify.com/debian/pubkey_6224F9941A8AA6D1.gpg
             uris: http://repository.spotify.com
             suites: stable
-            components:
-              - non-free
-            signed_by: https://download.spotify.com/debian/pubkey_7A3A762FAFD4A51F.gpg
+            components: non-free
           become: true
-        - name: Setup Slack
-          ansible.builtin.deb822_repository:
-            name: slack
-            uris: https://packagecloud.io/slacktechnologies/slack/debian/
-            suites: jessie
-            components:
-              - main
-        - name: Install desktop packages
+        - name: Install GUI apt packages
           ansible.builtin.apt:
+            update_cache: true
+            force_apt_get: true
             name:
               - alacritty
               - firefox
               - i3
+              - pavucontrol
+              - pulseaudio
               - saods9
-              - slack-desktop
               - spotify-client
-        
+              - thunderbird
+          become: true
+        - name: Check if Starship is installed
+          ansible.builtin.command:
+            cmd: starship --version
+          register: starship_check
+          changed_when: false
+          ignore_errors: true
+        - name: Install Starship
+          when: starship_check is failed
+          block:
+            - name: Fetch Starship Installer
+              ansible.builtin.uri:
+                url: https://starship.rs/install.sh
+                return_content: true
+              register: starship_installer
+            - name: Run Starship installer
+              ansible.builtin.command:
+                cmd: sh -s -- -y
+                stdin: "{{ starship_installer.content }}"
+              register: starship_install
+              changed_when: starship_install.rc == 0
         - name: Set I3 as default window manager
           community.general.alternatives:
             link: /usr/bin/x-session-manager
             name: x-session-manager
             path: /usr/bin/i3
             priority: 60
-    - name: Reboot machine
-      ansible.builtin.reboot:
+          become: true
