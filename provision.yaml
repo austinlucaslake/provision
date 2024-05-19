@@ -77,6 +77,7 @@
           - python3-virtualenv
           - qemu-system
           - rsync
+          - tree
           - tmux
           - usbutils
           - virtinst
@@ -219,11 +220,21 @@
       register: gh_auth
       changed_when: gh_auth.rc == 0
     - name: Load configuration files
-      ansible.builtin.template:
-        src: "{{ item.src }}"
-        dest: "{{ ansible_user_dir + '/' + item }}"
-        mode: preserve
-      with_community.general.filetree: "{{ ansible_user_dir + 'code/dotfiles/src/' }}"
+      block:
+        - name: Create configuration directories
+          ansible.builtin.file:
+            path: "{{ ansible_user_dir + '/' + item.path }}"
+            state: directory
+            mode: "{{ item.mode }}"
+          with_community.general.filetree: "{{ ansible_user_dir + '/code/dotfiles/src/' }}"
+          when: item.state == 'directory'
+        - name: Template configuration files
+          ansible.builtin.template:
+            src: "{{ item.src }}"
+            dest: "{{ ansible_user_dir + '/' + item.path }}"
+            mode: "{{ item.mode }}"
+          with_community.general.filetree: "{{ ansible_user_dir + '/code/dotfiles/src/' }}"
+          when: item.state == 'file'
     - name: Install desktop packages
       when: desktop | bool
       block:
@@ -277,3 +288,12 @@
             path: /usr/bin/i3
             priority: 60
           become: true
+        - name: Ensure an X session starts automatically
+          ansible.builtin.blockinfile:
+            path: "{{ ansible_user_dir + '/.bash_profile' }}"
+            append_newline: true
+            prepend_newline: true
+            block: |
+              if [[ -z $DISPLAY ]] && [[ $(tty) = /dev/tty1 ]]; then
+                  startx
+              fi
