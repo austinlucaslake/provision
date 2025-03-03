@@ -1,0 +1,55 @@
+---
+- name: SSH
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Install SSH package
+      ansible.builtin.apt:
+        force_apt_get: true
+        update_cache: true
+        name: ssh
+      become: true
+    - name: Setup SSH key
+      when: ssh_passphrase | default("", true) | length > 0
+      block:
+        - name: Create SSH key
+          community.crypto.openssh_keypair:
+            path: "{{ '$USER/.ssh/id_ed25519' | ansible.builtin.expandvars }}"
+            type: ed25519
+            comment: "{{ '$USER@$HOSTNAME' | ansible.builtin.expandvars }}"
+            passphrase: "{{ ssh_passphrase }}"
+          register: ssh_key
+        - name: Enable ssh-agent
+          ansible.builtin.shell:
+            cmd: eval $(ssh-agent -s)
+          changed_when: false
+        - name: Add SSH key to ssh-agent:
+          ansible.builtin.command:
+            cmd: ssh-add {{ ansible_user_dir }}/.ssh/id_ed25519
+        - name: Add SSH key to GitHub
+          when: token | default("", true) | length > 0
+          community.general.github_key:
+            name: "{{ '$USER@$HOSTNAME' | ansible.builtin.expandvars }}"
+            token: "{{ token }}"
+            pubkey: "{{ lookup('ansible.builtin.file', '$HOME/.ssh/id_ed25519.pub' | ansible.builtin.expandvars) }}"
+    - name: disable root login
+      ansible.builtin.lineinfile:
+        dest: /etc/ssh/sshd_config
+        regexp: '^PermitRootLogin'
+        line: "PermitRootLogin no"
+        state: present
+        backup: yes
+      become: true
+      notify: restart ssh
+    - name: Ensure ssh is running
+      ansible.builtin.service:
+        name: sshd
+        state: started
+      become: true
+  handlers:
+  - name: restart ssh
+    ansible.builtin.service:
+      name: sshd
+      state: restarted
+    become: true

@@ -1,0 +1,26 @@
+---
+- name: Docker 
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Add Docker repo
+      ansible.builtin.deb822_repository:
+        name: docker
+        uris: https://download.docker.com/linux/debian
+        architectures: "{{ lookup('ansible.builtin.pipe', 'dpkg --print-architecture') }}" 
+        suites: bookworm
+        components: stable
+        signed_by: https://download.docker.com/linux/debian/gpg
+      become: true
+    - name: Install Docker packages
+      ansible.builtin.apt:
+        force_apt_get: true
+        update_cache: true
+        name:
+          - containerd.io
+          - docker-ce
+          - docker-ce-cli
+          - docker-buildx-plugin
+          - docker-compose-plugin
+      become: true

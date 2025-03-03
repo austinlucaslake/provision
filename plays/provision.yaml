@@ -1,0 +1,145 @@
+---
+- name: Debian provisioning playbook
+  hosts: localhost
+  connection: local
+  remote_user: austinlucaslake
+  gather_facts: true
+  tasks:
+    - name: Install apt packages
+      ansible.builtin.apt:
+        force_apt_get: true
+        name:
+          - ansible
+          - ansible-lint
+          - libopencv-dev
+          - pavucontrol
+          - picom
+          - pulseaudio
+          - saods9
+          - thunderbird
+          - usbutils
+          - xbase-clients
+          - xorg
+          - xz-utils
+          - yamllint
+      become: true
+    - name: Setup SSH key
+      when: ssh_passphrase | default("", true) | length > 0
+      block:
+        - name: Create SSH key
+          community.crypto.openssh_keypair:
+            path: "{{ ansible_user_dir + '/.ssh/id_ed25519' | ansible.builtin.quote }}"
+            type: ed25519
+            comment: "{{ user_at_hostname }}"
+            passphrase: "{{ ssh_passphrase }}"
+          register: ssh_key
+        - name: Cache SSH key passphrase
+          block:
+            - name: Enable ssh-agent
+              ansible.builtin.shell:
+                cmd: eval $(ssh-agent -s)
+              changed_when: false
+            - name: Add SSH key to ssh-agent:
+              ansible.builtin.command:
+                cmd: ssh-add {{ ansible_user_dir }}/.ssh/id_ed25519 
+        - name: Add SSH key to GitHub
+          when: token | default("", true) | length > 0
+          community.general.github_key:
+            name: "{{ user_at_hostname }}"
+            token: "{{ token }}"
+            pubkey: "{{ lookup('ansible.builtin.file', ansible_user_dir + '/.ssh/id_ed25519.pub' | ansible.builtin.quote) }}"
+        #    - name: Setup GPG key
+        #      block:
+        #        - name: Create GPG key
+        #          when: gpg_passphrase | default("", true) | length > 0
+        #          community.crypto.gpg_keypair:
+        #            key_type: EDDSA
+        #            key_curve: ed25519
+        #            key_usage:
+        #              - cert
+        #            subkeys:
+        #              - key_type: EDDSA
+        #                key_curve: ed25519
+        #                key_usage:
+        #                  - sign
+        #              - key_type: EDDSA
+        #                key_curve: ed25519
+        #                key_usage:
+        #                  - auth
+        #              - key_type: ECDH
+        #                key_curve: cv25519
+        #                key_usage:
+        #                  - encr
+        #            name: Austin Lucas Lake
+        #            comment: "{{ user_at_hostname }}"
+        #            email: git@austinlucaslake.com
+        #            passphrase: "{{ gpg_passphrase }}"
+        #          register: gpg_key
+        #        - name: Add GPG key to GitHub
+        #          when: token | default("", true) | length > 0
+        #          community.general.github_gpg_key:
+        #            token: "{{ token }}"
+        #            name: "{{ user_at_hostname }}"
+        #            armored_public_key: "{{ gpg_key.fingerprints[0] | community.crypto.gpg_armor_export }}"
+    - name: Setup Git
+      block:
+        - name: Set initial Git configuration
+          community.general.git_config:
+            name: "{{ item.name }}"
+            scope: global
+            value: "{{ item.value }}"
+          with_items:
+            - name: user.name
+              value: Austin Lucas Lake
+            - name: user.email
+              value: git@austinlucaslake.com
+        - name: Clone Git repositories
+          ansible.builtin.git:
+            repo: "{{ item.repo }}"
+            dest: "{{ item.dest | ansible.builtin.expanduser }}"
+            accept_newhostkey: true
+            clone: true
+            update: false
+            version: main
+            key_file: "{{ ansible_user_dir + '/.ssh/id_ed25519' | ansible.builtin.quote }}"
+          with_items:
+            - repo: git@github.com:austinlucaslake/astrosight.git
+              dest: ~/code/astrosight
+            - repo: git@github.com:austinlucaslake/c-template.git
+              dest: ~/code/c-template
+            - repo: git@github.com:austinlucaslake/dotfiles.git
+              dest: ~/code/dotfiles
+            - repo: git@github.com:austinlucaslake/physecs.git
+              dest: ~/code/physecs
+            - repo: git@github.com:austinlucaslake/provision.git
+              dest: ~/code/provision
+            - repo: git@github.com:austinlucaslake/py-template.git
+              dest: ~/code/py-template
+            - repo: git@github.com:austinlucaslake/rs-template.git
+              dest: ~/code/rs-template
+            - repo: git@github.com:austinlucaslake/website.git
+              dest: ~/code/website
+            - repo: git@github.com:tmux-plugins/tpm.git
+              dest: ~/.tmux/plugins/tpm
+    - name: Authenicate GitHub profile
+      when: token | default("", true) | length > 0
+      ansible.builtin.command:
+        cmd: gh auth login --with-token "{{ token }}"
+      register: gh_auth
+      changed_when: gh_auth.rc == 0
+    - name: Load configuration files
+      block:
+        - name: Create configuration directories
+          ansible.builtin.file:
+            path: "{{ ansible_user_dir + '/' + item.path }}"
+            state: directory
+            mode: "{{ item.mode }}"
+          with_community.general.filetree: "{{ ansible_user_dir + '/code/dotfiles/src/' }}"
+          when: item.state == 'directory'
+        - name: Template configuration files
+          ansible.builtin.template:
+            src: "{{ item.src }}"
+            dest: "{{ ansible_user_dir + '/' + item.path }}"
+            mode: "{{ item.mode }}"
+          with_community.general.filetree: "{{ ansible_user_dir + '/code/dotfiles/src/' }}"
+          when: item.state == 'file'

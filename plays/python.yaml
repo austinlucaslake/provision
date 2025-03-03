@@ -1,0 +1,21 @@
+---
+- name: Python 
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Install Python-related packages
+      ansible.builtin.apt:
+        force_apt_get: true
+        update_cache: true
+        name:
+          - jupyter
+          - python3-argcomplete
+          - python3-full
+          - python3-opencv
+          - python3-pdm
+          - python3-pip
+          - python3-setuptools
+          - python3-virtualenv
+          - ruff
+      become: true

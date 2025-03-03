@@ -1,0 +1,17 @@
+---
+- name: Networking
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tasks:
+    - name: Install networking packages
+      ansible.builtin.apt:
+        force_apt_get: true
+        name:
+          - ca-certificates
+          - curl
+          - nmap
+          - ufw
+          - wget
+          - wireshark
+      become: tue

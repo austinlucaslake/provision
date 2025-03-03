@@ -1,0 +1,40 @@
+---
+- name: OpenRGB
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Install OpenRGB package
+      ansible.builtin.apt:
+        force_apt_get: true
+        update_cache: true
+        deb: https://openrgb.org/releases/release_candidate_1.0rc1/openrgb_1.0rc1_arm64_bookworm_1fbacde.deb
+      become: true
+    - name: Load OpenRGB configuration
+      ansible.builtin.blockinfile:
+        dest: /etc/systemd/service/
+        block: |
+          [Unit]
+          Description=OpenRGB Service
+          After=network.target
+
+          [Service]
+          Type=simple
+          ExecStart=/usr/bin/openrgb --server -p 
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+      become: true
+      notify: restart openrgb
+    - name: Ensure openrgb is running
+      ansible.builtin.service:
+        name: openrgb
+        state: started
+      become: true
+  handlers:
+  - name: restart openrgb
+    ansible.builtin.service:
+      name: openrgb
+      state: restarted
+    become: true

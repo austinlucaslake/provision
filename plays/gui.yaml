@@ -1,0 +1,29 @@
+---
+- name: GUI
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Install GUI packages
+      ansible.builtin.apt:
+        force_apt_get: true
+        name:
+          - flameshot
+          - i3
+          - sway
+      become: true
+    - name: Load i3 configuration
+      ansible.builtin.uri:
+        url: https://raw.githubusercontent.com/austinlucaslake/provision/.config/i3/config
+        dest: "{{ '$HOME/.config/i3/config' | ansible.builtin.expandvars }}"
+    - name: Load sway configuration
+      ansible.builtin.uri:
+        url: https://raw.githubusercontent.com/austinlucaslake/provision/.config/sway/config
+        dest: "{{ '$HOME/.config/sway/config' | ansible.builtin.expandvars }}"
+    - name: Set i3 as default window manager
+      community.general.alternatives:
+        link: /usr/bin/x-session-manager
+        name: x-session-manager
+        path: /usr/bin/i3
+        priority: 60
+      become: true

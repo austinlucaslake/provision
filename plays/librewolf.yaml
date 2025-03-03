@@ -1,0 +1,21 @@
+---
+- name: LibreWolf
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Add LibreWolf repo
+      ansible.builtin.deb822_repository:
+        types: deb
+        name: librewolf
+        uris: http://repo.librewolf.net
+        suites: librewolf 
+        components: main
+        signed_by: https://repo.librewolf.net/keyring.gpg
+      become: true
+    - name: Install LibreWolf package
+      ansible.builtin.apt:
+        force_apt_get: true
+        update_cache: true
+        name: librewolf
+      become: true

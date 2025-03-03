@@ -1,0 +1,20 @@
+---
+- name: Terminal
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Install terminal packages
+      ansible.builtin.apt:
+        force_apt_get: true
+        update_cache: true
+        name:
+          - alacritty
+          - bash-completion
+          - fastfetch
+          - neovim
+          - rsync
+          - starship
+          - tree
+          - tmux
+      become: true

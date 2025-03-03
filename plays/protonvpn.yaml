@@ -1,0 +1,21 @@
+---
+- name: Proton VPN
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    block:
+      - name: Add Proton VPN repo
+        ansible.builtin.deb822_repository:
+          name: protonvpn
+          uris: https://repo.protonvpn.com/debian
+          suites: stable
+          components: main
+          signed_by: https://report.protonvpn.com/debian/public_key.asc
+        become: true
+      - name: Install Proton VPN package
+        ansible.builtin.apt:
+          force_apt_get: true
+          update_cache: true
+          name: protonvpn-gnome-desktop
+        become: true

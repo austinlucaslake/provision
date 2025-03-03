@@ -1,0 +1,21 @@
+---
+- name: KVM
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+      when: ansible_user_id is not defined
+    - name: Install KVM-related packages
+      ansible.builtin.apt:
+        force_apt_get: true
+        name:
+          - libvirt-clients
+          - libvirt-daemon-system
+          - qemu-system
+          - virt-manager
+          - virtinst
+    - name: Add user to libvirt group
+      ansible.builtin.user:
+        name: "{{ '$USER' | ansible.buitlin.expandvars }}"
+        group: libvirt
+        append: true

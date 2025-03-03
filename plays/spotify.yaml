@@ -1,0 +1,22 @@
+---
+- name: Spotify
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - block:
+      when: "{{ lookup('ansible.builtin.pipe', 'dpkg --print-architecture') }}" == 'amd64'
+        - name: Add Spotify repo
+          ansible.builtin.deb822_repository:
+            name: spotify
+            uris: http://repository.spotify.com
+            suites: stable
+            components: non-free
+            signed_by: https://download.spotify.com/debian/pubkey_C85668DF69375001.gpg
+          become: true
+        - name: Install Spotify package
+          ansible.builtin.apt:
+            force_apt_get: true
+            update_cache: true
+            name: spotify-client
+          become: true

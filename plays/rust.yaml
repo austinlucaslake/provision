@@ -1,0 +1,22 @@
+---
+- name: Rust
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Install Rust packages
+      ansible.builtin.apt:
+        force_apt_get: true
+        update_cache: true
+        name:
+          - cargo
+          - rustup
+          - rust-clippy
+          - rustfmt
+      become: true
+    - name: install cargo binaries
+      community.general.cargo:
+        locked: true
+        name:
+          - cargo-leptos
+          - trunk

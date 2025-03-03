@@ -1,0 +1,45 @@
+---
+- name: Git 
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Install GPG package
+      ansible.builtin.apt:
+        force_apt_get: true
+        name:
+          - gnupg
+      become: true
+    - name: Setup GPG key
+      block:
+        - name: Create GPG key
+          when: gpg_passphrase | default("", true) | length > 0
+          community.crypto.gpg_keypair:
+            key_type: EDDSA
+            key_curve: ed25519
+            key_usage:
+              - cert
+            subkeys:
+              - key_type: EDDSA
+                key_curve: ed25519
+                key_usage:
+                  - sign
+              - key_type: EDDSA
+                key_curve: ed25519
+                key_usage:
+                  - auth
+              - key_type: ECDH
+                key_curve: cv25519
+                key_usage:
+                  - encr
+            name: Austin Lucas Lake
+            comment: "{{ user_at_hostname }}"
+            email: git@austinlucaslake.com
+            passphrase: "{{ gpg_passphrase }}"
+          register: gpg_key
+        - name: Add GPG key to GitHub
+          when: token | default("", true) | length > 0
+          community.general.github_gpg_key:
+            token: "{{ token }}"
+            name: "{{ user_at_hostname }}"
+            armored_public_key: "{{ gpg_key.fingerprints[0] | community.crypto.gpg_armor_export }}"

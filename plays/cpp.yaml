@@ -1,0 +1,21 @@
+---
+- name: C/C++
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Install C/C++ packages
+      ansible.builtin.apt:
+        force_apt_get: true
+        update_cache: true
+        name:
+          - clang
+          - clang-format
+          - clang-tidy
+          - cmake
+          - cppcheck
+          - cpplint
+          - g++
+          - gcc
+          - iwyu
+      become: true

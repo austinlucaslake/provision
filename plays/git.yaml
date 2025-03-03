@@ -1,0 +1,80 @@
+---
+- name: Git 
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Install Git packages
+      ansible.builtin.apt:
+        force_apt_get: true
+        name:
+          - git
+          - gh
+          - glab
+      become: true
+    - name: Add SSH key to GitHub
+      when: token | default("", true) | length > 0
+      community.general.github_key:
+        name: "{{ '$USER@$HOSTNAME' | ansible.builtin.expandvars }}"
+        token: "{{ token }}"
+        pubkey: "{{ lookup('ansible.builtin.file', '$HOME/.ssh/id_ed25519.pub' | ansible.builtin.expandvars) }}"
+    - name: Set initial Git configuration
+      community.general.git_config:
+        name: "{{ item.name }}"
+        scope: global
+        value: "{{ item.value }}"
+      with_items:
+        - name: user.name
+          value: Austin Lucas Lake
+        - name: user.email
+          value: git@austinlucaslake.com
+    - name: Clone Git repositories
+      ansible.builtin.git:
+        repo: "{{ item.repo }}"
+        dest: "{{ item.dest | ansible.builtin.expandvars }}"
+        accept_newhostkey: true
+        clone: true
+        update: false
+        version: main
+        key_file: "{{ '$HOME/.ssh/id_ed25519' | ansible.builtin.expandvars | ansible.buitlin.quote }}"
+      with_items:
+        - repo: git@github.com:austinlucaslake/astrosight.git
+          dest: $HOME/code/astrosight
+        - repo: git@github.com:austinlucaslake/c-template.git
+          dest: $HOME/code/c-template
+        - repo: git@github.com:austinlucaslake/dotfiles.git
+          dest: $HOME/code/dotfiles
+        - repo: git@github.com:austinlucaslake/physecs.git
+          dest: $HOME/code/physecs
+        - repo: git@github.com:austinlucaslake/provision.git
+          dest: $HOME/code/provision
+        - repo: git@github.com:austinlucaslake/py-template.git
+          dest: $HOME/code/py-template
+        - repo: git@github.com:austinlucaslake/rs-template.git
+          dest: $HOMR/code/rs-template
+        - repo: git@github.com:austinlucaslake/website.git
+          dest: $HOME/code/website
+        - repo: git@github.com:tmux-plugins/tpm.git
+          dest: $HOME/.tmux/plugins/tpm
+    - name: Authenicate GitHub profile
+      when: token | default("", true) | length > 0
+      ansible.builtin.command:
+        cmd: gh auth login --with-token "{{ token }}"
+      register: gh_auth
+      changed_when: gh_auth.rc == 0
+    - name: Load configuration files
+      block:
+        - name: Create configuration directories
+          ansible.builtin.file:
+            path: "{{ '$HOME/' + item.path | ansible.builtin.expandvars }}"
+            state: directory
+            mode: "{{ item.mode }}"
+          with_community.general.filetree: "{{ '$HOME/code/dotfiles/src/' | ansible.builtin.expandvars }}"
+          when: item.state == 'directory'
+        - name: Template configuration files
+          ansible.builtin.template:
+            src: "{{ item.src }}"
+            dest: "{{ ansible_user_dir + '/' + item.path }}"
+            mode: "{{ item.mode }}"
+          with_community.general.filetree: "{{ '$HOME/code/dotfiles/src/' | ansible.builtin.expandvars}}"
+          when: item.state == 'file'
